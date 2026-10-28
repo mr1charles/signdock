@@ -94,13 +94,12 @@ extension Cloud {
             do {
                 let blob = try await download("\(uid.uuidString)/certs/\(row.id.uuidString).bin")
                 let bundle = try JSONDecoder().decode(CertBundle.self, from: VaultCrypto.open(blob, key))
-                let cert = CertificateProfile(id: row.id, name: row.name, account: row.account, teamID: row.teamId,
+                var cert = CertificateProfile(id: row.id, name: row.name, account: row.account, teamID: row.teamId,
                                               profileName: row.profileName, expires: row.expires,
                                               addedAt: row.addedAt, revoked: row.revoked)
                 try FileManager.default.createDirectory(at: cert.folder, withIntermediateDirectories: true)
                 try bundle.p12.write(to: cert.p12URL)
                 try bundle.profile.write(to: cert.profileURL)
-                var cert = cert
                 cert.grantsMoreMemory = ProvisionParser.parse(bundle.profile)?.grantsMoreMemory
                 Keychain.set(bundle.password, for: cert.id)
                 store.certs.append(cert)

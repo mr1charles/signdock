@@ -2,7 +2,7 @@ name: Build
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, master]
 
 env:
   LIVECONTAINER_REF: 9108ae624ea001f7d7696d48407f890b48fa2653   # pinned upstream; apply.py asserts its anchors
