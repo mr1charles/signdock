@@ -1,0 +1,4 @@
+-- Applied to project rxuuqplvjxrrldacrpdy as migration "signdock_sync_schema".
+-- Tables: vault_profiles, library_items, sign_history, certificates (RLS: own rows only).
+-- Storage: private bucket "vault", objects under "<user id>/...", per-user policies.
+-- See the project's migration history for the exact SQL.

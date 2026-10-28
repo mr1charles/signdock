@@ -22,6 +22,22 @@ Two iOS apps, built entirely by GitHub Actions (no Mac needed).
 ## Build
 Actions → *Build* → run. Artifacts: `SignDock.ipa`, `DockBox.ipa` (unsigned; sign with SignDock).
 
+## Cloud backup & restore (SignDock)
+Sign in with an **emailed code** (Supabase Auth). Reinstall → sign in → library, history and certificates come back.
+- Metadata (library, history, cert labels) is stored per-user behind row-level security.
+- Certificates (`.p12` + profile + password) are **encrypted on-device** (AES-GCM, PBKDF2 key from a vault
+  passphrase) before upload. Forget the passphrase = re-add certs.
+- IPAs: backed up to a private bucket if ≤ 50 MB (free-plan limit); otherwise restored by re-downloading
+  from the link you imported them from. Files imported from disk that are too large can't be restored.
+- **One-time setup:** Supabase dashboard → Authentication → Email Templates → *Magic Link* and *Confirm signup*:
+  include `{{ .Token }}` in the body (e.g. `Your SignDock code: {{ .Token }}`) or no code is ever emailed.
+  The built-in mailer is heavily rate-limited; add a custom SMTP provider for real use.
+- Backend: project `rxuuqplvjxrrldacrpdy` (schema in `supabase/migrations`).
+
+## Multiple Apple accounts
+Each certificate carries an Apple ID label; the Certificates tab groups by it and tapping selects the active one.
+SignDock does not log into Apple IDs to mint certificates (that's SideStore/AltStore territory); you import the
+`.p12` + profile for each free developer account. Free-account profiles expire after 7 days.
+
 ## Status
-Nothing here has been compiled or run yet — written on Linux. First CI run will show compile errors.
-Not built yet: account sign-in and cloud restore.
+Written on Linux and not yet run on a device. See the Actions tab for whether it compiles.

@@ -79,8 +79,12 @@ final class BatchSigner: ObservableObject {
         let password = Keychain.get(cert.id)
 
         for index in jobs.indices {
-            jobs[index].state = .working
             let item = jobs[index].item
+            guard item.hasLocalFile else {
+                jobs[index].state = .failed("This IPA hasn't been downloaded to this device yet. Sync, or re-import it.")
+                continue
+            }
+            jobs[index].state = .working
             let started = Date()
             let result = await Task.detached(priority: .userInitiated) {
                 Result { try SigningEngine.sign(ipa: item.fileURL, displayName: item.name, cert: cert,

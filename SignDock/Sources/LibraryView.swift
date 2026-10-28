@@ -29,7 +29,12 @@ struct LibraryView: View {
                 Section(items.isEmpty ? "" : "\(items.count) apps") {
                     ForEach(items) { item in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(item.name).font(.headline)
+                            HStack(spacing: 4) {
+                                Text(item.name).font(.headline)
+                                if !item.hasLocalFile {
+                                    Image(systemName: "icloud.and.arrow.down").foregroundStyle(.orange)
+                                }
+                            }
                             Text("\(item.bundleID) · v\(item.version) · \(ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file))")
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }

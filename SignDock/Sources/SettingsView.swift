@@ -11,6 +11,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                AccountView()
+
                 Section {
                     row("DockBox", installed("dockbox"))
                     row("StikDebug", installed("stikjit"))

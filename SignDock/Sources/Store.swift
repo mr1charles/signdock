@@ -86,11 +86,18 @@ final class AppStore: ObservableObject {
     func remove(_ item: LibraryItem) {
         try? FileManager.default.removeItem(at: item.fileURL)
         library.removeAll { $0.id == item.id }
+        Tombstones.add(.library, item.id)
+    }
+
+    func removeHistory(_ records: [SignRecord]) {
+        let ids = Set(records.map(\.id))
+        for r in records { if let url = r.outputURL { try? FileManager.default.removeItem(at: url) }; Tombstones.add(.history, r.id) }
+        history.removeAll { ids.contains($0.id) }
     }
 
     // MARK: Certificates
 
-    func addCertificate(name: String, p12: URL, profile: URL, password: String) async throws {
+    func addCertificate(name: String, account: String, p12: URL, profile: URL, password: String) async throws {
         var cert = try await Task.detached { () -> CertificateProfile in
             let scopedA = p12.startAccessingSecurityScopedResource()
             let scopedB = profile.startAccessingSecurityScopedResource()
@@ -100,7 +107,8 @@ final class AppStore: ObservableObject {
             }
             let profileData = try Data(contentsOf: profile)
             guard let info = ProvisionParser.parse(profileData) else { throw StoreError.badProfile }
-            let cert = CertificateProfile(name: name.isEmpty ? info.name : name, teamID: info.teamID,
+            let cert = CertificateProfile(name: name.isEmpty ? info.name : name,
+                                          account: account.isEmpty ? nil : account, teamID: info.teamID,
                                           profileName: info.name, expires: info.expires)
             try FileManager.default.createDirectory(at: cert.folder, withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: p12, to: cert.p12URL)
@@ -122,6 +130,7 @@ final class AppStore: ObservableObject {
         try? FileManager.default.removeItem(at: cert.folder)
         Keychain.remove(cert.id)
         certs.removeAll { $0.id == cert.id }
+        Tombstones.add(.certs, cert.id)
     }
 
     /// Zsign's OCSP check: status 1 means revoked; 2 means it couldn't tell (offline, bad password...).

@@ -58,12 +58,11 @@ struct HistoryView: View {
                 }
             }
             .confirmationDialog("Delete all history and signed IPA files?", isPresented: $confirmClear, titleVisibility: .visible) {
-                Button("Delete everything", role: .destructive) { store.history.forEach(removeFile); store.history.removeAll() }
+                Button("Delete everything", role: .destructive) { store.removeHistory(store.history) }
             }
             .sheet(item: Binding(get: { signing.map(SignRequest.init) }, set: { signing = $0?.items })) { SignSheet(items: $0.items) }
         }
     }
 
-    private func removeFile(_ r: SignRecord) { if let url = r.outputURL { try? FileManager.default.removeItem(at: url) } }
-    private func delete(_ r: SignRecord) { removeFile(r); store.history.removeAll { $0.id == r.id } }
+    private func delete(_ r: SignRecord) { store.removeHistory([r]) }
 }

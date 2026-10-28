@@ -25,6 +25,8 @@ enum Paths {
 struct CertificateProfile: Identifiable, Codable, Hashable {
     var id = UUID()
     var name: String
+    /// Which Apple ID / free developer account this certificate belongs to (for switching).
+    var account: String?
     var teamID: String
     var profileName: String
     var expires: Date?
@@ -48,6 +50,8 @@ struct LibraryItem: Identifiable, Codable, Hashable {
     var sourceURL: String?
 
     var fileURL: URL { Paths.library.appendingPathComponent("\(id.uuidString).ipa") }
+    /// False after a cloud restore until the file has been downloaded again.
+    var hasLocalFile: Bool { FileManager.default.fileExists(atPath: fileURL.path) }
 }
 
 struct SignRecord: Identifiable, Codable, Hashable {

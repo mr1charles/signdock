@@ -22,7 +22,7 @@ struct SignSheet: View {
                         } else {
                             Picker("Certificate", selection: Binding(get: { cert?.id }, set: { certID = $0 })) {
                                 ForEach(store.certs) { c in
-                                    Text(c.name + (c.revoked ? " (revoked)" : c.isExpired ? " (expired)" : "")).tag(Optional(c.id))
+                                    Text((c.account.map { "\($0) · " } ?? "") + c.name + (c.revoked ? " (revoked)" : c.isExpired ? " (expired)" : "")).tag(Optional(c.id))
                                 }
                             }
                         }

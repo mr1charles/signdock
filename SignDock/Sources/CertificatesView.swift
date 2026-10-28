@@ -5,10 +5,18 @@ struct CertificatesView: View {
     @EnvironmentObject var store: AppStore
     @State private var adding = false
 
+    private var accounts: [String] {
+        var seen: [String] = []
+        for c in store.certs { let a = c.account ?? "No account"; if !seen.contains(a) { seen.append(a) } }
+        return seen
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.certs) { cert in
+                ForEach(accounts, id: \.self) { account in
+                Section(account) {
+                ForEach(store.certs.filter { ($0.account ?? "No account") == account }) { cert in
                     Button { store.selectedCertID = cert.id } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
@@ -29,6 +37,8 @@ struct CertificatesView: View {
                         Button { Task { await store.refreshStatus(cert) } } label: { Label("Check", systemImage: "arrow.triangle.2.circlepath") }.tint(.orange)
                     }
                 }
+                }
+                }
             }
             .overlay { if store.certs.isEmpty { ContentUnavailableLike(title: "No certificates", message: "Add a .p12 and its .mobileprovision.") } }
             .navigationTitle("Certificates")
@@ -42,6 +52,7 @@ struct AddCertificateView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
+    @State private var account = ""
     @State private var p12: URL?
     @State private var profile: URL?
     @State private var password = ""
@@ -55,6 +66,8 @@ struct AddCertificateView: View {
         NavigationStack {
             Form {
                 Section {
+                    TextField("Apple ID / account (e.g. dev1@icloud.com)", text: $account)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
                     TextField("Name (optional)", text: $name)
                     Button { picking = .p12 } label: { fileRow("Certificate (.p12)", p12) }
                     Button { picking = .profile } label: { fileRow("Profile (.mobileprovision)", profile) }
@@ -94,7 +107,7 @@ struct AddCertificateView: View {
         guard let p12, let profile else { return }
         busy = true; error = nil
         Task {
-            do { try await store.addCertificate(name: name, p12: p12, profile: profile, password: password); dismiss() }
+            do { try await store.addCertificate(name: name, account: account.trimmingCharacters(in: .whitespaces), p12: p12, profile: profile, password: password); dismiss() }
             catch { self.error = error.localizedDescription }
             busy = false
         }
