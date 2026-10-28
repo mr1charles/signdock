@@ -100,6 +100,8 @@ extension Cloud {
                 try FileManager.default.createDirectory(at: cert.folder, withIntermediateDirectories: true)
                 try bundle.p12.write(to: cert.p12URL)
                 try bundle.profile.write(to: cert.profileURL)
+                var cert = cert
+                cert.grantsMoreMemory = ProvisionParser.parse(bundle.profile)?.grantsMoreMemory
                 Keychain.set(bundle.password, for: cert.id)
                 store.certs.append(cert)
                 mark("cloud.certsUploaded", cert.id)

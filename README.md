@@ -34,6 +34,12 @@ Sign in with an **emailed code** (Supabase Auth). Reinstall → sign in → libr
   The built-in mailer is heavily rate-limited; add a custom SMTP provider for real use.
 - Backend: project `rxuuqplvjxrrldacrpdy` (schema in `supabase/migrations`).
 
+## Increased memory limit
+DockBox (and its Multitask guest process) already declare `com.apple.developer.kernel.increased-memory-limit`
+upstream. iOS only honors it if the signing **profile** grants it; Zsign applies the profile's entitlements to
+every app it signs. SignDock shows per certificate whether the profile has it, and the sign sheet can
+require it (fails with a clear message instead of silently running with normal limits).
+
 ## Multiple Apple accounts
 Each certificate carries an Apple ID label; the Certificates tab groups by it and tapping selects the active one.
 SignDock does not log into Apple IDs to mint certificates (that's SideStore/AltStore territory); you import the

@@ -7,6 +7,7 @@ struct SignSheet: View {
     @StateObject private var signer = BatchSigner()
     @State private var certID: UUID?
     @State private var suffix = ""
+    @State private var requireMoreMemory = false
 
     private var cert: CertificateProfile? {
         store.certs.first { $0.id == (certID ?? store.selectedCert?.id) }
@@ -26,6 +27,13 @@ struct SignSheet: View {
                                 }
                             }
                         }
+                    }
+                    Section {
+                        Toggle("Require increased memory limit", isOn: $requireMoreMemory)
+                    } footer: {
+                        Text(cert?.grantsMoreMemory == true
+                             ? "This certificate's profile grants it, so every app signed with it gets the higher limit."
+                             : "This certificate's profile doesn't grant it. Apps run with normal limits; with this on, signing will stop with an error.")
                     }
                     Section {
                         TextField("e.g. mine  →  com.app.mine", text: $suffix)
@@ -51,7 +59,7 @@ struct SignSheet: View {
                     if signer.jobs.isEmpty {
                         Button("Start") {
                             guard let cert else { return }
-                            Task { await signer.run(items: items, cert: cert, bundleSuffix: suffix, store: store) }
+                            Task { await signer.run(items: items, cert: cert, bundleSuffix: suffix, requireMoreMemory: requireMoreMemory, store: store) }
                         }.disabled(cert == nil || cert?.revoked == true || cert?.isExpired == true)
                     }
                 }

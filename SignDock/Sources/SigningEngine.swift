@@ -3,10 +3,12 @@ import Zsign
 import ZIPFoundation
 
 enum SigningError: LocalizedError {
-    case noApp, signFailed
+    case noApp, signFailed, noMemoryEntitlement
     var errorDescription: String? {
         switch self {
         case .noApp: return "No .app found inside the IPA."
+        case .noMemoryEntitlement:
+            return "This certificate's profile doesn't include the Increased Memory Limit entitlement. Generate the profile with that capability enabled, or turn the option off."
         case .signFailed:
             return "Signing failed. Check the p12 password, that the profile belongs to this certificate, and that the app's bundle ID is allowed by the profile."
         }
@@ -18,7 +20,11 @@ enum SigningEngine {
 
     /// Blocking; call off the main thread. Zsign keeps global state, so never run two at once.
     static func sign(ipa: URL, displayName: String, cert: CertificateProfile,
-                     password: String, bundleSuffix: String) throws -> Output {
+                     password: String, bundleSuffix: String, requireMoreMemory: Bool = false) throws -> Output {
+        if requireMoreMemory {
+            let info = (try? Data(contentsOf: cert.profileURL)).flatMap(ProvisionParser.parse)
+            guard info?.grantsMoreMemory == true else { throw SigningError.noMemoryEntitlement }
+        }
         let fm = FileManager.default
         let work = Paths.work()
         defer { try? fm.removeItem(at: work) }
@@ -72,7 +78,7 @@ final class BatchSigner: ObservableObject {
     @Published var running = false
     var finished: Bool { !jobs.isEmpty && !running }
 
-    func run(items: [LibraryItem], cert: CertificateProfile, bundleSuffix: String, store: AppStore) async {
+    func run(items: [LibraryItem], cert: CertificateProfile, bundleSuffix: String, requireMoreMemory: Bool, store: AppStore) async {
         guard !running else { return }
         running = true
         jobs = items.map { Job(item: $0) }
@@ -88,7 +94,8 @@ final class BatchSigner: ObservableObject {
             let started = Date()
             let result = await Task.detached(priority: .userInitiated) {
                 Result { try SigningEngine.sign(ipa: item.fileURL, displayName: item.name, cert: cert,
-                                                password: password, bundleSuffix: bundleSuffix) }
+                                                password: password, bundleSuffix: bundleSuffix,
+                                                requireMoreMemory: requireMoreMemory) }
             }.value
 
             var record = SignRecord(appName: item.name, bundleID: item.bundleID, version: item.version,

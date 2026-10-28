@@ -109,7 +109,8 @@ final class AppStore: ObservableObject {
             guard let info = ProvisionParser.parse(profileData) else { throw StoreError.badProfile }
             let cert = CertificateProfile(name: name.isEmpty ? info.name : name,
                                           account: account.isEmpty ? nil : account, teamID: info.teamID,
-                                          profileName: info.name, expires: info.expires)
+                                          profileName: info.name, expires: info.expires,
+                                          grantsMoreMemory: info.grantsMoreMemory)
             try FileManager.default.createDirectory(at: cert.folder, withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: p12, to: cert.p12URL)
             try profileData.write(to: cert.profileURL)

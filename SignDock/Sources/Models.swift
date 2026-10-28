@@ -32,6 +32,8 @@ struct CertificateProfile: Identifiable, Codable, Hashable {
     var expires: Date?
     var addedAt = Date()
     var revoked = false
+    /// Whether the provisioning profile grants the Increased Memory Limit entitlement.
+    var grantsMoreMemory: Bool?
 
     var folder: URL { Paths.certs.appendingPathComponent(id.uuidString, isDirectory: true) }
     var p12URL: URL { folder.appendingPathComponent("cert.p12") }

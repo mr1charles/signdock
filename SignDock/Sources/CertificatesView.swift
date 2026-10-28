@@ -26,6 +26,8 @@ struct CertificatesView: View {
                                     Text("Expires \(exp.formatted(date: .abbreviated, time: .omitted))")
                                         .font(.caption2).foregroundStyle(cert.isExpired ? .red : .secondary)
                                 }
+                                Text(cert.grantsMoreMemory == true ? "Increased memory limit ✓" : "No increased memory limit")
+                                    .font(.caption2).foregroundStyle(cert.grantsMoreMemory == true ? .green : .secondary)
                                 if cert.revoked { Text("Revoked").font(.caption.bold()).foregroundStyle(.red) }
                             }
                             Spacer()

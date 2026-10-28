@@ -29,9 +29,15 @@ enum IPAInspector {
     }
 }
 
-struct ProvisionInfo { var name: String; var teamID: String; var expires: Date? }
+struct ProvisionInfo {
+    var name: String; var teamID: String; var expires: Date?
+    var entitlementKeys: Set<String> = []
+    var grantsMoreMemory: Bool { entitlementKeys.contains(ProvisionParser.increasedMemoryKey) }
+}
 
 enum ProvisionParser {
+    static let increasedMemoryKey = "com.apple.developer.kernel.increased-memory-limit"
+
     /// A .mobileprovision is CMS-wrapped, but the plist inside is stored in the clear.
     static func parse(_ data: Data) -> ProvisionInfo? {
         guard let start = data.range(of: Data("<?xml".utf8)),
@@ -40,7 +46,8 @@ enum ProvisionParser {
         guard let dict = (try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)) as? [String: Any]
         else { return nil }
         let team = (dict["TeamIdentifier"] as? [String])?.first ?? ""
+        let ents = (dict["Entitlements"] as? [String: Any]).map { Set($0.keys) } ?? []
         return ProvisionInfo(name: dict["Name"] as? String ?? "Profile", teamID: team,
-                             expires: dict["ExpirationDate"] as? Date)
+                             expires: dict["ExpirationDate"] as? Date, entitlementKeys: ents)
     }
 }
