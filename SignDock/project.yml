@@ -1,0 +1,48 @@
+name: SignDock
+options:
+  bundleIdPrefix: dev.signdock
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  Zsign:
+    url: https://github.com/khcrysalis/Zsign-Package
+    revision: c4ba9da4283031c07efa03bce42c4b8602d22e73
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.19
+targets:
+  SignDock:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    dependencies:
+      - package: Zsign
+        product: Zsign
+      - package: ZIPFoundation
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.signdock.app
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: SignDock
+        UILaunchScreen: {}
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        LSApplicationQueriesSchemes: [dockbox, stikjit]
+        CFBundleURLTypes:
+          - CFBundleURLName: dev.signdock.app
+            CFBundleURLSchemes: [signdock]
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: iOS App Package
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.apple.itunes.ipa]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]

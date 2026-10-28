@@ -1,0 +1,58 @@
+name: Build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+env:
+  LIVECONTAINER_REF: 9108ae624ea001f7d7696d48407f890b48fa2653   # pinned upstream; apply.py asserts its anchors
+  STIKDEBUG_REF: 17b1e1d90d602a228de663a10efa987a9f9e547b       # source of the prebuilt idevice FFI library
+
+jobs:
+  signdock:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate project
+        working-directory: SignDock
+        run: brew install xcodegen && xcodegen generate
+      - name: Archive
+        working-directory: SignDock
+        run: |
+          xcodebuild archive -project SignDock.xcodeproj -scheme SignDock -archivePath build/SignDock \
+            -sdk iphoneos -arch arm64 -configuration Release \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO | xcpretty && exit ${PIPESTATUS[0]}
+      - name: Package unsigned IPA
+        working-directory: SignDock
+        run: |
+          mkdir -p Payload && cp -R build/SignDock.xcarchive/Products/Applications/SignDock.app Payload/
+          zip -qry SignDock.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: { name: SignDock.ipa, path: SignDock/SignDock.ipa }
+
+  dockbox:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned upstreams
+        run: |
+          git clone https://github.com/LiveContainer/LiveContainer lc
+          git -C lc checkout "$LIVECONTAINER_REF"
+          git -C lc submodule update --init --recursive
+          git clone https://github.com/StephenDev0/StikDebug stik
+          git -C stik checkout "$STIKDEBUG_REF"
+      - name: Apply DockBox changes
+        run: python3 DockBox/apply.py lc stik
+      - name: Archive
+        working-directory: lc
+        run: |
+          xcodebuild archive -archivePath archive -scheme LiveContainer -project LiveContainer.xcodeproj \
+            -sdk iphoneos -arch arm64 -configuration Release | xcpretty && exit ${PIPESTATUS[0]}
+      - name: Create IPA
+        working-directory: lc
+        env: { scheme: LiveContainer, archive_path: archive }
+        run: |
+          sh .github/build_github.sh
+          mv LiveContainer.ipa ../DockBox.ipa
+      - uses: actions/upload-artifact@v4
+        with: { name: DockBox.ipa, path: DockBox.ipa }
