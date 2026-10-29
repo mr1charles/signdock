@@ -31,8 +31,14 @@ jobs:
       - name: Archive
         working-directory: lc
         run: |
+          set +e
           xcodebuild archive -archivePath archive -scheme LiveContainer -project LiveContainer.xcodeproj \
-            -sdk iphoneos -arch arm64 -configuration Release | xcpretty && exit ${PIPESTATUS[0]}
+            -sdk iphoneos -arch arm64 -configuration Release > build.log 2>&1
+          code=$?
+          echo "---- compiler errors ----"
+          grep -E "error:|fatal error:|ld: " build.log | sort -u | head -80
+          echo "---- xcodebuild exit $code ----"
+          exit $code
       - name: Create IPA
         working-directory: lc
         env: { scheme: LiveContainer, archive_path: archive }
