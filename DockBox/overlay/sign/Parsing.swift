@@ -1,5 +1,4 @@
 import Foundation
-import ZIPFoundation
 
 struct IPAInfo { var name: String; var bundleID: String; var version: String }
 

@@ -8,29 +8,10 @@ on:
 env:
   LIVECONTAINER_REF: 9108ae624ea001f7d7696d48407f890b48fa2653   # pinned upstream; apply.py asserts its anchors
   STIKDEBUG_REF: 17b1e1d90d602a228de663a10efa987a9f9e547b       # source of the prebuilt idevice FFI library
+  ZSIGN_REF: c4ba9da4283031c07efa03bce42c4b8602d22e73            # full Zsign engine (bundle signing)
+  ZIPFOUNDATION_REF: 0.9.19                                      # pure-Swift zip/unzip
 
 jobs:
-  signdock:
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-      - name: Generate project
-        working-directory: SignDock
-        run: brew install xcodegen && xcodegen generate
-      - name: Archive
-        working-directory: SignDock
-        run: |
-          xcodebuild archive -project SignDock.xcodeproj -scheme SignDock -archivePath build/SignDock \
-            -sdk iphoneos -arch arm64 -configuration Release \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO | xcpretty && exit ${PIPESTATUS[0]}
-      - name: Package unsigned IPA
-        working-directory: SignDock
-        run: |
-          mkdir -p Payload && cp -R build/SignDock.xcarchive/Products/Applications/SignDock.app Payload/
-          zip -qry SignDock.ipa Payload
-      - uses: actions/upload-artifact@v4
-        with: { name: SignDock.ipa, path: SignDock/SignDock.ipa }
-
   dockbox:
     runs-on: macos-26
     steps:
@@ -42,8 +23,11 @@ jobs:
           git -C lc submodule update --init --recursive
           git clone https://github.com/StephenDev0/StikDebug stik
           git -C stik checkout "$STIKDEBUG_REF"
+          git clone https://github.com/khcrysalis/Zsign-Package -b package zsign
+          git -C zsign checkout "$ZSIGN_REF"
+          git clone --depth 1 --branch "$ZIPFOUNDATION_REF" https://github.com/weichsel/ZIPFoundation zipf
       - name: Apply DockBox changes
-        run: python3 DockBox/apply.py lc stik
+        run: python3 DockBox/apply.py lc stik zsign zipf
       - name: Archive
         working-directory: lc
         run: |
@@ -59,18 +43,18 @@ jobs:
         with: { name: DockBox.ipa, path: DockBox.ipa }
 
   release:
-    needs: [signdock, dockbox]
+    needs: [dockbox]
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4          # -> SignDock.ipa/SignDock.ipa, DockBox.ipa/DockBox.ipa
+      - uses: actions/download-artifact@v4          # -> DockBox.ipa/DockBox.ipa
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v0.1.${{ github.run_number }}"
-          gh release create "$TAG" SignDock.ipa/SignDock.ipa DockBox.ipa/DockBox.ipa \
+          gh release create "$TAG" DockBox.ipa/DockBox.ipa \
             --repo "${{ github.repository }}" --target "${{ github.sha }}" \
-            --title "SignDock + DockBox $TAG" --generate-notes --latest
+            --title "DockBox $TAG" --generate-notes --latest

@@ -1,16 +1,10 @@
-# SignDock + DockBox
+# DockBox
 
-Two iOS apps, built entirely by GitHub Actions (no Mac needed).
+One iOS app, built entirely by GitHub Actions (no Mac needed): a [LiveContainer](https://github.com/LiveContainer/LiveContainer)
+fork with a built-in batch IPA signer and cloud restore. Licensed AGPL-3.0.
 
-## SignDock — batch IPA signer
-- Import many IPAs at once, or paste many download links (one per line); failures don't stop the rest.
-- Sign any selection with one certificate in a single run; optional bundle-ID suffix.
-- History: every run recorded (result, certificate, time taken, error). Re-sign, share, search, filter.
-- Certificates: `.p12` + `.mobileprovision`; password kept in the Keychain; revocation check.
-- Signing engine: [Zsign](https://github.com/khcrysalis/Zsign-Package) (same as Feather). GPL-3.0.
-
-## DockBox — LiveContainer fork
-`DockBox/apply.py` patches a **pinned** upstream LiveContainer (AGPL-3.0) — no vendored copy:
+## Container tabs (upstream + changes)
+`DockBox/apply.py` patches a **pinned** upstream LiveContainer; no vendored copy:
 - **JIT provider switch** (Settings → JIT): built-in, or any existing option incl. StikDebug.
   - *Built-in* attaches to the guest from DockBox itself using StikDebug's `idevice` library (pairing file +
     LocalDevVPN, device IP 10.7.0.1). `vAttach` freezes its target, so a debugger can't debug its own
@@ -19,11 +13,14 @@ Two iOS apps, built entirely by GitHub Actions (no Mac needed).
 - **Per-app modes** (Standard / Game / Compatibility): one-tap presets over LiveContainer's per-app options.
 - Home-screen shortcuts are upstream's existing web-clip feature.
 
-## Download
-Latest builds: https://mr1charles.github.io/signdock/ — every push to `master` builds and publishes a release.
-
-## Build
-Actions → *Build* → run. Artifacts: `SignDock.ipa`, `DockBox.ipa` (unsigned; sign with SignDock).
+## Sign tab (Library · History · Certificates · Cloud)
+- Import many IPAs at once, or paste many download links (one per line); failures don't stop the rest.
+- Sign any selection with one certificate in a single run; optional bundle-ID suffix.
+- History: every run recorded (result, certificate, time taken, error). Re-sign, share, search, filter.
+- "Container" swipe action on a library app installs it into DockBox (the tab bar's Apps tab).
+- Certificates: `.p12` + `.mobileprovision`; password kept in the Keychain; revocation check.
+- Engine: [Zsign](https://github.com/khcrysalis/Zsign-Package) sources compiled into the app next to
+  LiveContainer's own trimmed signing library; zip handling by ZIPFoundation. Both pinned in the workflow.
 
 ## Cloud backup & restore (SignDock)
 Sign in with an **emailed code** (Supabase Auth). Reinstall → sign in → library, history and certificates come back.
@@ -40,12 +37,12 @@ Sign in with an **emailed code** (Supabase Auth). Reinstall → sign in → libr
 ## Increased memory limit
 DockBox (and its Multitask guest process) already declare `com.apple.developer.kernel.increased-memory-limit`
 upstream. iOS only honors it if the signing **profile** grants it; Zsign applies the profile's entitlements to
-every app it signs. SignDock shows per certificate whether the profile has it, and the sign sheet can
+every app it signs. the Sign tab shows per certificate whether the profile has it, and the sign sheet can
 require it (fails with a clear message instead of silently running with normal limits).
 
 ## Multiple Apple accounts
 Each certificate carries an Apple ID label; the Certificates tab groups by it and tapping selects the active one.
-SignDock does not log into Apple IDs to mint certificates (that's SideStore/AltStore territory); you import the
+DockBox does not log into Apple IDs to mint certificates (that's SideStore/AltStore territory); you import the
 `.p12` + profile for each free developer account. Free-account profiles expire after 7 days.
 
 ## Status

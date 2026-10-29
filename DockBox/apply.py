@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn a pinned LiveContainer checkout into DockBox.
 
-usage: apply.py <livecontainer-dir> <stikdebug-dir>
+usage: apply.py <livecontainer-dir> <stikdebug-dir> <zsign-package-dir> <zipfoundation-dir>
 
 Every edit asserts that its anchor matches exactly once, so if upstream drifts this fails loudly
 instead of silently producing a half-patched app.
@@ -10,6 +10,8 @@ import pathlib, re, shutil, sys
 
 lc = pathlib.Path(sys.argv[1])
 stik = pathlib.Path(sys.argv[2])
+zsign_pkg = pathlib.Path(sys.argv[3])
+zipf = pathlib.Path(sys.argv[4])
 here = pathlib.Path(__file__).parent
 
 
@@ -66,8 +68,45 @@ edit("LiveContainerSwiftUI/Views/AppList/AppSettings/LCAppSettingsView.swift",
 # 5. Overlay sources (LiveContainerSwiftUI is a synchronized Xcode group: new files compile automatically)
 dest = lc / "LiveContainerSwiftUI/DockBox"
 dest.mkdir(exist_ok=True)
-for f in (here / "overlay").glob("*.swift"):
+for f in (here / "overlay").rglob("*.swift"):   # JIT + modes, and the signing/cloud half under overlay/sign
     shutil.copy(f, dest / f.name)
+
+# 5b. Zip library (pure Swift, MIT): compiled straight into the SwiftUI module
+zdest = lc / "LiveContainerSwiftUI/ZIPFoundation"
+zdest.mkdir(exist_ok=True)
+for f in (zipf / "Sources/ZIPFoundation").glob("*.swift"):
+    shutil.copy(f, zdest / f.name)
+
+# 5c. Full Zsign engine (bundle signing, profile embedding, bundle-ID rewrite). Only the files the
+# package itself compiles; archive.cpp, zsign.cpp and the third-party zip code are left out.
+zb = lc / "LiveContainerSwiftUI/ZsignBundle"
+for sub in ("src/common", "swift"):
+    (zb / sub).mkdir(parents=True, exist_ok=True)
+compiled = ["archo", "bundle", "macho", "openssl", "signing"]
+for stem in compiled:
+    for ext in (".cpp", ".h"):
+        shutil.copy(zsign_pkg / "src" / (stem + ext), zb / "src" / (stem + ext))
+for stem in ["base64", "fs", "json", "log", "sha", "timer", "util"]:
+    for ext in (".cpp", ".h"):
+        shutil.copy(zsign_pkg / "src/common" / (stem + ext), zb / "src/common" / (stem + ext))
+for extra in ["common.h", "mach-o.h", "archive.h"]:
+    shutil.copy(zsign_pkg / "src/common" / extra, zb / "src/common" / extra)
+for name in ("utils.mm", "utils.hpp", "zsign.mm", "zsign.hpp"):
+    shutil.copy(zsign_pkg / "swift" / name, zb / "swift" / name)
+
+# 5d. Swift sees the C functions through the existing bridging header
+edit("LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h",
+     '#include "../LiveContainer/FoundationPrivate.h"\n',
+     '#include "../LiveContainer/FoundationPrivate.h"\n#include "ZsignBundle/swift/zsign.hpp"\n')
+
+# 5e. New "Sign" tab next to Apps
+edit("LiveContainerSwiftUI/Utilities/Shared.swift", "    case apps\n    case tweaks\n", "    case apps\n    case sign\n    case tweaks\n")
+edit("LiveContainerSwiftUI/Views/LCTabView.swift",
+     "            LCSettingsView()\n                .tabItem {\n",
+     "            SignDockHub()\n                .tabItem {\n"
+     "                    Label(\"Sign\", systemImage: \"signature\")\n                }\n"
+     "                .tag(LCTabIdentifier.sign)\n\n"
+     "            LCSettingsView()\n                .tabItem {\n")
 
 # 6. idevice: header + module map + static lib from StikDebug, linked into the SwiftUI target only
 deps = lc / "DockBoxDeps/idevice"
@@ -83,10 +122,17 @@ for cfg in ("17413FBF2D9C0BAE00F3F928", "17413FC02D9C0BAE00F3F928"):
     block = text[start:end]
     old = 'OTHER_LDFLAGS = "-Wl,-U,_OBJC_CLASS_$_RBSTarget";'
     assert block.count(old) == 1, f"pbxproj {cfg}: OTHER_LDFLAGS anchor not found once"
+    for key in ("HEADER_SEARCH_PATHS", "FRAMEWORK_SEARCH_PATHS", "CLANG_CXX_LANGUAGE_STANDARD", "CLANG_ENABLE_OBJC_ARC"):
+        assert key not in block, f"pbxproj {cfg}: {key} already set; merge by hand"
     block = block.replace(
         old,
-        'OTHER_LDFLAGS = "-Wl,-U,_OBJC_CLASS_$_RBSTarget -L$(SRCROOT)/DockBoxDeps/idevice -lidevice_ffi";\n'
-        '\t\t\t\tSWIFT_INCLUDE_PATHS = "$(inherited) $(SRCROOT)/DockBoxDeps/idevice";')
+        'OTHER_LDFLAGS = "-Wl,-U,_OBJC_CLASS_$_RBSTarget -L$(SRCROOT)/DockBoxDeps/idevice -lidevice_ffi -framework OpenSSL";\n'
+        '\t\t\t\tSWIFT_INCLUDE_PATHS = "$(inherited) $(SRCROOT)/DockBoxDeps/idevice";\n'
+        '\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = "gnu++17";\n'
+        '\t\t\t\tCLANG_ENABLE_OBJC_ARC = YES;\n'
+        '\t\t\t\tFRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(PROJECT_DIR)/OpenSSL/Frameworks/iphoneos");\n'
+        '\t\t\t\tHEADER_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/LiveContainerSwiftUI/ZsignBundle/src", '
+        '"$(SRCROOT)/LiveContainerSwiftUI/ZsignBundle/src/common", "$(SRCROOT)/LiveContainerSwiftUI/ZsignBundle/swift");')
     text = text[:start] + block + text[end:]
 pbx.write_text(text)
 

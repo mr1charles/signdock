@@ -1,6 +1,4 @@
 import Foundation
-import Zsign
-import ZIPFoundation
 
 enum SigningError: LocalizedError {
     case noApp, signFailed, noMemoryEntitlement

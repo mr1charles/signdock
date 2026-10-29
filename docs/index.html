@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SignDock + DockBox</title>
-<meta name="description" content="Batch IPA signer with history and cloud restore, plus a LiveContainer-based container with built-in JIT.">
+<title>DockBox</title>
+<meta name="description" content="One app to batch-sign IPAs and run apps in a container with built-in JIT or StikDebug, with cloud restore.">
 <style>
   :root { --bg:#f6f7f9; --card:#fff; --ink:#14161a; --mute:#5b6270; --line:#e3e6ec; --accent:#2f6bff; --accent-ink:#fff; }
   @media (prefers-color-scheme: dark) {
@@ -35,44 +35,42 @@
 </head>
 <body>
 <main>
-  <h1>SignDock + DockBox</h1>
-  <p class="lead">Sign many IPAs at once and keep a history, then run apps in a container with built-in JIT or StikDebug.</p>
+  <h1>DockBox</h1>
+  <p class="lead">One app: sign many IPAs at once, keep a history, and run apps in a container with built-in JIT or StikDebug. Sign in with an emailed code and a reinstall restores everything.</p>
   <p class="meta" id="meta">Checking the latest release…</p>
 
   <div class="grid">
     <section class="card">
-      <h3>SignDock</h3>
-      <p>Batch IPA signer.</p>
-      <ul>
-        <li>Import many IPAs or paste many links</li>
-        <li>Sign a whole selection in one run</li>
-        <li>History with re-sign and share</li>
-        <li>Several Apple accounts, switch any time</li>
-        <li>Sign in with an emailed code; reinstall and get everything back</li>
-      </ul>
-      <a class="btn" id="dl-signdock" href="https://github.com/mr1charles/signdock/releases/latest/download/SignDock.ipa">Download SignDock.ipa</a>
-      <div class="size" id="size-signdock"></div>
-    </section>
-    <section class="card">
-      <h3>DockBox</h3>
-      <p>LiveContainer-based app container.</p>
+      <h3>Container</h3>
+      <p>Based on LiveContainer.</p>
       <ul>
         <li>JIT: built-in, or StikDebug, picked in Settings</li>
         <li>Per-app modes: Standard, Game, Compatibility</li>
         <li>Home-screen shortcuts for your apps</li>
         <li>Increased memory limit entitlement declared</li>
       </ul>
-      <a class="btn" id="dl-dockbox" href="https://github.com/mr1charles/signdock/releases/latest/download/DockBox.ipa">Download DockBox.ipa</a>
-      <div class="size" id="size-dockbox"></div>
+    </section>
+    <section class="card">
+      <h3>Sign tab</h3>
+      <p>Batch IPA signer, built in.</p>
+      <ul>
+        <li>Import many IPAs or paste many links</li>
+        <li>Sign a whole selection in one run</li>
+        <li>History with re-sign and share</li>
+        <li>Several Apple accounts, switch any time</li>
+        <li>Send any library app to the container in one tap</li>
+      </ul>
     </section>
   </div>
+  <p style="margin-top:20px"><a class="btn" id="dl-dockbox" href="https://github.com/mr1charles/signdock/releases/latest/download/DockBox.ipa">Download DockBox.ipa</a></p>
+  <div class="size" id="size-dockbox" style="text-align:left"></div>
 
   <h2>Install</h2>
   <div class="note">These IPAs are <strong>unsigned</strong>. Install them with your usual sideloading tool using your own Apple developer account. After that, SignDock can sign everything else, including DockBox updates.</div>
   <ol>
-    <li>Download both files and sideload SignDock first.</li>
-    <li>In SignDock, add your certificate (<code>.p12</code> and <code>.mobileprovision</code>) under Certificates.</li>
-    <li>Sign <code>DockBox.ipa</code> from the Library tab and install the result.</li>
+    <li>Download <code>DockBox.ipa</code> and sideload it with your usual tool.</li>
+    <li>Open the Sign tab → Certificates and add your <code>.p12</code> and <code>.mobileprovision</code>. Add one per Apple account to switch between them.</li>
+    <li>Import IPAs in Library, then sign them for installing on the home screen, or send them to the container.</li>
     <li>For built-in JIT: import your pairing file in DockBox Settings → JIT and connect LocalDevVPN. Built-in JIT works for apps in Multitask mode; other launches use StikDebug.</li>
   </ol>
 
@@ -81,7 +79,7 @@
 
   <footer>
     Early builds: not every path has been tested on a device yet.
-    SignDock is GPL-3.0 and DockBox is AGPL-3.0; source on
+    Licensed AGPL-3.0 (built on LiveContainer, StikDebug and Zsign); source on
     <a href="https://github.com/mr1charles/signdock">GitHub</a> ·
     <a href="https://github.com/mr1charles/signdock/releases">All releases</a>
   </footer>
@@ -96,7 +94,7 @@
       var when = new Date(rel.published_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
       document.getElementById("meta").textContent = "Latest: " + rel.tag_name + " · " + when;
       (rel.assets || []).forEach(function (a) {
-        var key = a.name.toLowerCase().indexOf("signdock") === 0 ? "signdock" : a.name.toLowerCase().indexOf("dockbox") === 0 ? "dockbox" : null;
+        var key = a.name.toLowerCase().indexOf("dockbox") === 0 ? "dockbox" : null;
         if (!key) return;
         document.getElementById("dl-" + key).href = a.browser_download_url;
         document.getElementById("size-" + key).textContent = mb(a.size);

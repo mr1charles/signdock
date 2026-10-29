@@ -3,6 +3,7 @@ import SwiftUI
 struct LibraryView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var importer: ImportQueue
+    @EnvironmentObject var sharedModel: SharedModel
     @State private var selection = Set<UUID>()
     @State private var editMode: EditMode = .inactive
     @State private var search = ""
@@ -41,6 +42,13 @@ struct LibraryView: View {
                         .swipeActions {
                             Button(role: .destructive) { store.remove(item) } label: { Label("Delete", systemImage: "trash") }
                             Button { signing = [item] } label: { Label("Sign", systemImage: "signature") }.tint(.blue)
+                            if item.hasLocalFile {
+                                Button {
+                                    // LiveContainer installs a file URL handed to it as a deep link.
+                                    sharedModel.selectedTab = .apps
+                                    sharedModel.deepLink = item.fileURL
+                                } label: { Label("Container", systemImage: "square.and.arrow.down.on.square") }.tint(.green)
+                            }
                         }
                     }
                 }

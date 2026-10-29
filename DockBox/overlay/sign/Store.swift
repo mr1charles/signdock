@@ -1,6 +1,5 @@
 import Foundation
 import Security
-import Zsign
 
 enum Keychain {
     private static let service = "dev.signdock.cert-password"
