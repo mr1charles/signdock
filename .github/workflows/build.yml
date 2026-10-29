@@ -28,6 +28,8 @@ jobs:
           git clone --depth 1 --branch "$ZIPFOUNDATION_REF" https://github.com/weichsel/ZIPFoundation zipf
       - name: Apply DockBox changes
         run: python3 DockBox/apply.py lc stik zsign zipf
+      - name: Build Zsign engine
+        run: DockBox/build_zsign.sh "$PWD/lc"
       - name: Archive
         working-directory: lc
         run: |

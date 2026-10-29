@@ -79,7 +79,7 @@ for f in (zipf / "Sources/ZIPFoundation").glob("*.swift"):
 
 # 5c. Full Zsign engine (bundle signing, profile embedding, bundle-ID rewrite). Only the files the
 # package itself compiles; archive.cpp, zsign.cpp and the third-party zip code are left out.
-zb = lc / "LiveContainerSwiftUI/ZsignBundle"
+zb = lc / "DockBoxDeps/zsign"   # outside the Xcode project; compiled by build_zsign.sh
 for sub in ("src/common", "swift"):
     (zb / sub).mkdir(parents=True, exist_ok=True)
 compiled = ["archo", "bundle", "macho", "openssl", "signing"]
@@ -97,7 +97,7 @@ for name in ("utils.mm", "utils.hpp", "zsign.mm", "zsign.hpp"):
 # 5d. Swift sees the C functions through the existing bridging header
 edit("LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h",
      '#include "../LiveContainer/FoundationPrivate.h"\n',
-     '#include "../LiveContainer/FoundationPrivate.h"\n#include "ZsignBundle/swift/zsign.hpp"\n')
+     '#include "../LiveContainer/FoundationPrivate.h"\n#include "../DockBoxDeps/zsign/swift/zsign.hpp"\n')
 
 # 5e. New "Sign" tab next to Apps
 edit("LiveContainerSwiftUI/Utilities/Shared.swift", "    case apps\n    case tweaks\n", "    case apps\n    case sign\n    case tweaks\n")
@@ -122,17 +122,13 @@ for cfg in ("17413FBF2D9C0BAE00F3F928", "17413FC02D9C0BAE00F3F928"):
     block = text[start:end]
     old = 'OTHER_LDFLAGS = "-Wl,-U,_OBJC_CLASS_$_RBSTarget";'
     assert block.count(old) == 1, f"pbxproj {cfg}: OTHER_LDFLAGS anchor not found once"
-    for key in ("HEADER_SEARCH_PATHS", "FRAMEWORK_SEARCH_PATHS", "CLANG_CXX_LANGUAGE_STANDARD", "CLANG_ENABLE_OBJC_ARC"):
+    for key in ("FRAMEWORK_SEARCH_PATHS",):
         assert key not in block, f"pbxproj {cfg}: {key} already set; merge by hand"
     block = block.replace(
         old,
-        'OTHER_LDFLAGS = "-Wl,-U,_OBJC_CLASS_$_RBSTarget -L$(SRCROOT)/DockBoxDeps/idevice -lidevice_ffi -framework OpenSSL";\n'
+        'OTHER_LDFLAGS = "-Wl,-U,_OBJC_CLASS_$_RBSTarget -L$(SRCROOT)/DockBoxDeps/idevice -lidevice_ffi -L$(SRCROOT)/DockBoxDeps/zsign -lzsignbundle -lc++ -framework OpenSSL";\n'
         '\t\t\t\tSWIFT_INCLUDE_PATHS = "$(inherited) $(SRCROOT)/DockBoxDeps/idevice";\n'
-        '\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = "gnu++17";\n'
-        '\t\t\t\tCLANG_ENABLE_OBJC_ARC = YES;\n'
-        '\t\t\t\tFRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(PROJECT_DIR)/OpenSSL/Frameworks/iphoneos");\n'
-        '\t\t\t\tHEADER_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/LiveContainerSwiftUI/ZsignBundle/src", '
-        '"$(SRCROOT)/LiveContainerSwiftUI/ZsignBundle/src/common", "$(SRCROOT)/LiveContainerSwiftUI/ZsignBundle/swift");')
+        '\t\t\t\tFRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(PROJECT_DIR)/OpenSSL/Frameworks/iphoneos");')
     text = text[:start] + block + text[end:]
 pbx.write_text(text)
 
