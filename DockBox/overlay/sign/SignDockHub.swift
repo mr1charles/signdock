@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// The signing half of the app, as one tab with four sections.
+@available(iOS 16.0, *)
 struct SignDockHub: View {
     enum HubSection: String, CaseIterable, Identifiable {
         case library = "Library", history = "History", certificates = "Certificates", cloud = "Cloud"
@@ -48,6 +49,7 @@ struct SignDockHub: View {
     }
 }
 
+@available(iOS 16.0, *)
 struct CloudView: View {
     @EnvironmentObject var store: AppStore
 

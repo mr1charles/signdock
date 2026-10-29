@@ -103,9 +103,10 @@ edit("LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h",
 edit("LiveContainerSwiftUI/Utilities/Shared.swift", "    case apps\n    case tweaks\n", "    case apps\n    case sign\n    case tweaks\n")
 edit("LiveContainerSwiftUI/Views/LCTabView.swift",
      "            LCSettingsView()\n                .tabItem {\n",
-     "            SignDockHub()\n                .tabItem {\n"
-     "                    Label(\"Sign\", systemImage: \"signature\")\n                }\n"
-     "                .tag(LCTabIdentifier.sign)\n\n"
+     "            if #available(iOS 16.0, *) {\n"
+     "                SignDockHub()\n                    .tabItem {\n"
+     "                        Label(\"Sign\", systemImage: \"signature\")\n                    }\n"
+     "                    .tag(LCTabIdentifier.sign)\n            }\n\n"
      "            LCSettingsView()\n                .tabItem {\n")
 
 # 6. idevice: header + module map + static lib from StikDebug, linked into the SwiftUI target only

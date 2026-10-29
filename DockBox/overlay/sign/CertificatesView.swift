@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+@available(iOS 16.0, *)
 struct CertificatesView: View {
     @EnvironmentObject var store: AppStore
     @State private var adding = false
@@ -50,6 +51,7 @@ struct CertificatesView: View {
     }
 }
 
+@available(iOS 16.0, *)
 struct AddCertificateView: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) private var dismiss

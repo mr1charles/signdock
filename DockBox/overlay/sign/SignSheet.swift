@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 16.0, *)
 struct SignSheet: View {
     let items: [LibraryItem]
     @EnvironmentObject var store: AppStore
@@ -69,6 +70,7 @@ struct SignSheet: View {
     }
 }
 
+@available(iOS 16.0, *)
 struct JobRow: View {
     let job: BatchSigner.Job
     var body: some View {

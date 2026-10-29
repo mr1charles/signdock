@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 16.0, *)
 struct HistoryView: View {
     @EnvironmentObject var store: AppStore
     @State private var search = ""
@@ -9,13 +10,18 @@ struct HistoryView: View {
 
     enum Filter: String, CaseIterable { case all = "All", ok = "Signed", failed = "Failed" }
 
-    private var rows: [SignRecord] {
-        store.history.filter { r in
-            (filter == .all || (filter == .ok) == r.success)
-                && (search.isEmpty || r.appName.localizedCaseInsensitiveContains(search)
-                    || r.bundleID.localizedCaseInsensitiveContains(search)
-                    || r.certName.localizedCaseInsensitiveContains(search))
+    private var rows: [SignRecord] { store.history.filter(matches) }
+
+    private func matches(_ r: SignRecord) -> Bool {
+        switch filter {
+        case .ok where !r.success: return false
+        case .failed where r.success: return false
+        default: break
         }
+        if search.isEmpty { return true }
+        return r.appName.localizedCaseInsensitiveContains(search)
+            || r.bundleID.localizedCaseInsensitiveContains(search)
+            || r.certName.localizedCaseInsensitiveContains(search)
     }
 
     var body: some View {

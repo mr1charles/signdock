@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 16.0, *)
 struct LibraryView: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var importer: ImportQueue
@@ -107,6 +108,7 @@ struct SignRequest: Identifiable {
     init(_ items: [LibraryItem]) { self.items = items }
 }
 
+@available(iOS 16.0, *)
 struct ImportRow: View {
     let row: ImportQueue.Row
     var body: some View {
@@ -123,6 +125,7 @@ struct ImportRow: View {
     }
 }
 
+@available(iOS 16.0, *)
 struct URLInputSheet: View {
     @EnvironmentObject var store: AppStore
     @EnvironmentObject var importer: ImportQueue
@@ -154,6 +157,7 @@ struct URLInputSheet: View {
 }
 
 /// iOS 16-compatible stand-in for ContentUnavailableView.
+@available(iOS 16.0, *)
 struct ContentUnavailableLike: View {
     let title: String, message: String
     var body: some View {
