@@ -50,6 +50,31 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: DockBox.ipa, path: DockBox.ipa }
 
+  control:
+    # Manual only: unmodified upstream at the pinned commit, built the same way. For telling "my change
+    # broke installing" apart from "the installer/device has a problem".
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    steps:
+      - name: Fetch upstream
+        run: |
+          git clone https://github.com/LiveContainer/LiveContainer lc
+          git -C lc checkout "$LIVECONTAINER_REF"
+          git -C lc submodule update --init --recursive
+      - name: Archive
+        working-directory: lc
+        run: |
+          xcodebuild archive -archivePath archive -scheme LiveContainer -project LiveContainer.xcodeproj \
+            -sdk iphoneos -arch arm64 -configuration Release > build.log 2>&1 || { grep -E "error:" build.log | sort -u | head -40; exit 1; }
+      - name: Create IPA
+        working-directory: lc
+        env: { scheme: LiveContainer, archive_path: archive }
+        run: |
+          sh .github/build_github.sh
+          mv LiveContainer.ipa ../LiveContainer-control.ipa
+      - uses: actions/upload-artifact@v4
+        with: { name: LiveContainer-control.ipa, path: LiveContainer-control.ipa }
+
   release:
     needs: [dockbox]
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
