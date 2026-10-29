@@ -22,7 +22,7 @@ fork with a built-in batch IPA signer and cloud restore. Licensed AGPL-3.0.
 - Engine: [Zsign](https://github.com/khcrysalis/Zsign-Package) sources compiled into the app next to
   LiveContainer's own trimmed signing library; zip handling by ZIPFoundation. Both pinned in the workflow.
 
-## Cloud backup & restore (SignDock)
+## Cloud backup & restore (Sign tab)
 Sign in with an **emailed code** (Supabase Auth). Reinstall → sign in → library, history and certificates come back.
 - Metadata (library, history, cert labels) is stored per-user behind row-level security.
 - Certificates (`.p12` + profile + password) are **encrypted on-device** (AES-GCM, PBKDF2 key from a vault
@@ -30,7 +30,7 @@ Sign in with an **emailed code** (Supabase Auth). Reinstall → sign in → libr
 - IPAs: backed up to a private bucket if ≤ 50 MB (free-plan limit); otherwise restored by re-downloading
   from the link you imported them from. Files imported from disk that are too large can't be restored.
 - **One-time setup:** Supabase dashboard → Authentication → Email Templates → *Magic Link* and *Confirm signup*:
-  include `{{ .Token }}` in the body (e.g. `Your SignDock code: {{ .Token }}`) or no code is ever emailed.
+  include `{{ .Token }}` in the body (e.g. `Your DockBox code: {{ .Token }}`) or no code is ever emailed.
   The built-in mailer is heavily rate-limited; add a custom SMTP provider for real use.
 - Backend: project `rxuuqplvjxrrldacrpdy` (schema in `supabase/migrations`).
 
