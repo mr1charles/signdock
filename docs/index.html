@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SignDock + DockBox</title>
+<meta name="description" content="Batch IPA signer with history and cloud restore, plus a LiveContainer-based container with built-in JIT.">
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#14161a; --mute:#5b6270; --line:#e3e6ec; --accent:#2f6bff; --accent-ink:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0e1013; --card:#171a20; --ink:#eef0f4; --mute:#9aa3b2; --line:#262b34; --accent:#5b8aff; --accent-ink:#0b0d12; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 56px 20px 80px; }
+  h1 { font-size: clamp(2rem, 6vw, 3rem); line-height:1.1; margin:0 0 12px; letter-spacing:-0.02em; }
+  h2 { font-size: 1.15rem; margin: 40px 0 12px; }
+  .lead { color:var(--mute); font-size:1.1rem; max-width: 60ch; margin:0 0 8px; }
+  .meta { color:var(--mute); font-size:.9rem; min-height:1.4em; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:16px; margin-top:24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; display:flex; flex-direction:column; gap:10px; }
+  .card h3 { margin:0; font-size:1.25rem; }
+  .card p { margin:0; color:var(--mute); }
+  .card ul { margin:4px 0 8px; padding-left:18px; color:var(--mute); }
+  .btn { margin-top:auto; display:inline-block; text-align:center; text-decoration:none; font-weight:600;
+         background:var(--accent); color:var(--accent-ink); padding:11px 16px; border-radius:10px; }
+  .btn:focus-visible, a:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+  .size { color:var(--mute); font-size:.85rem; text-align:center; }
+  ol { padding-left: 20px; } li { margin: 6px 0; }
+  .note { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:10px; padding:14px 16px; color:var(--mute); }
+  pre.notes { white-space:pre-wrap; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; font:14px/1.5 ui-monospace,Menlo,monospace; color:var(--mute); overflow-wrap:anywhere; }
+  footer { margin-top:48px; color:var(--mute); font-size:.9rem; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>SignDock + DockBox</h1>
+  <p class="lead">Sign many IPAs at once and keep a history, then run apps in a container with built-in JIT or StikDebug.</p>
+  <p class="meta" id="meta">Checking the latest release…</p>
+
+  <div class="grid">
+    <section class="card">
+      <h3>SignDock</h3>
+      <p>Batch IPA signer.</p>
+      <ul>
+        <li>Import many IPAs or paste many links</li>
+        <li>Sign a whole selection in one run</li>
+        <li>History with re-sign and share</li>
+        <li>Several Apple accounts, switch any time</li>
+        <li>Sign in with an emailed code; reinstall and get everything back</li>
+      </ul>
+      <a class="btn" id="dl-signdock" href="https://github.com/mr1charles/signdock/releases/latest/download/SignDock.ipa">Download SignDock.ipa</a>
+      <div class="size" id="size-signdock"></div>
+    </section>
+    <section class="card">
+      <h3>DockBox</h3>
+      <p>LiveContainer-based app container.</p>
+      <ul>
+        <li>JIT: built-in, or StikDebug, picked in Settings</li>
+        <li>Per-app modes: Standard, Game, Compatibility</li>
+        <li>Home-screen shortcuts for your apps</li>
+        <li>Increased memory limit entitlement declared</li>
+      </ul>
+      <a class="btn" id="dl-dockbox" href="https://github.com/mr1charles/signdock/releases/latest/download/DockBox.ipa">Download DockBox.ipa</a>
+      <div class="size" id="size-dockbox"></div>
+    </section>
+  </div>
+
+  <h2>Install</h2>
+  <div class="note">These IPAs are <strong>unsigned</strong>. Install them with your usual sideloading tool using your own Apple developer account. After that, SignDock can sign everything else, including DockBox updates.</div>
+  <ol>
+    <li>Download both files and sideload SignDock first.</li>
+    <li>In SignDock, add your certificate (<code>.p12</code> and <code>.mobileprovision</code>) under Certificates.</li>
+    <li>Sign <code>DockBox.ipa</code> from the Library tab and install the result.</li>
+    <li>For built-in JIT: import your pairing file in DockBox Settings → JIT and connect LocalDevVPN. Built-in JIT works for apps in Multitask mode; other launches use StikDebug.</li>
+  </ol>
+
+  <h2>What changed in the latest release</h2>
+  <pre class="notes" id="notes">Loading…</pre>
+
+  <footer>
+    Early builds: not every path has been tested on a device yet.
+    SignDock is GPL-3.0 and DockBox is AGPL-3.0; source on
+    <a href="https://github.com/mr1charles/signdock">GitHub</a> ·
+    <a href="https://github.com/mr1charles/signdock/releases">All releases</a>
+  </footer>
+</main>
+<script>
+(function () {
+  var api = "https://api.github.com/repos/mr1charles/signdock/releases/latest";
+  var mb = function (n) { return (n / 1048576).toFixed(1) + " MB"; };
+  fetch(api, { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (rel) {
+      var when = new Date(rel.published_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+      document.getElementById("meta").textContent = "Latest: " + rel.tag_name + " · " + when;
+      (rel.assets || []).forEach(function (a) {
+        var key = a.name.toLowerCase().indexOf("signdock") === 0 ? "signdock" : a.name.toLowerCase().indexOf("dockbox") === 0 ? "dockbox" : null;
+        if (!key) return;
+        document.getElementById("dl-" + key).href = a.browser_download_url;
+        document.getElementById("size-" + key).textContent = mb(a.size);
+      });
+      document.getElementById("notes").textContent = (rel.body || "No notes.").trim();
+    })
+    .catch(function () {
+      document.getElementById("meta").textContent = "Couldn't read release info; the buttons still point at the latest files.";
+      document.getElementById("notes").textContent = "See the releases page on GitHub.";
+    });
+})();
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main, master]
+    paths-ignore: ['docs/**', '**.md']   # page/readme edits don't cut a release
 
 env:
   LIVECONTAINER_REF: 9108ae624ea001f7d7696d48407f890b48fa2653   # pinned upstream; apply.py asserts its anchors
@@ -56,3 +57,20 @@ jobs:
           mv LiveContainer.ipa ../DockBox.ipa
       - uses: actions/upload-artifact@v4
         with: { name: DockBox.ipa, path: DockBox.ipa }
+
+  release:
+    needs: [signdock, dockbox]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4          # -> SignDock.ipa/SignDock.ipa, DockBox.ipa/DockBox.ipa
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v0.1.${{ github.run_number }}"
+          gh release create "$TAG" SignDock.ipa/SignDock.ipa DockBox.ipa/DockBox.ipa \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "SignDock + DockBox $TAG" --generate-notes --latest

@@ -19,6 +19,9 @@ Two iOS apps, built entirely by GitHub Actions (no Mac needed).
 - **Per-app modes** (Standard / Game / Compatibility): one-tap presets over LiveContainer's per-app options.
 - Home-screen shortcuts are upstream's existing web-clip feature.
 
+## Download
+Latest builds: https://mr1charles.github.io/signdock/ — every push to `master` builds and publishes a release.
+
 ## Build
 Actions → *Build* → run. Artifacts: `SignDock.ipa`, `DockBox.ipa` (unsigned; sign with SignDock).
 
