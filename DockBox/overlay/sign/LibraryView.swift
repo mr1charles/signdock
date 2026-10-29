@@ -43,7 +43,7 @@ struct LibraryView: View {
                         .swipeActions {
                             Button(role: .destructive) { store.remove(item) } label: { Label("Delete", systemImage: "trash") }
                             Button { signing = [item] } label: { Label("Sign", systemImage: "signature") }.tint(.blue)
-                            if item.hasLocalFile {
+                            if item.hasLocalFile && !item.looksLikeContainer {
                                 Button {
                                     // LiveContainer installs a file URL handed to it as a deep link.
                                     sharedModel.selectedTab = .apps

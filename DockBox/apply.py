@@ -99,6 +99,12 @@ edit("LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h",
      '#include "../LiveContainer/FoundationPrivate.h"\n',
      '#include "../LiveContainer/FoundationPrivate.h"\n#include "../DockBoxDeps/zsign/swift/zsign.hpp"\n')
 
+# 5d2. A nested container asks the outer one for an app-group path it doesn't have; the hook then threw
+# on [NSURL fileURLWithPath:nil]. Fall through to the other branches instead.
+edit("LiveContainer/Tweaks/NSFileManager+GuestHooks.m",
+     'if([groupIdentifier isEqualToString:[NSClassFromString(@"LCSharedUtils") appGroupID]]) {',
+     'if(NSUserDefaults.lcAppGroupPath && [groupIdentifier isEqualToString:[NSClassFromString(@"LCSharedUtils") appGroupID]]) {')
+
 # 5e. New "Sign" tab next to Apps
 edit("LiveContainerSwiftUI/Utilities/Shared.swift", "    case apps\n    case tweaks\n", "    case apps\n    case sign\n    case tweaks\n")
 edit("LiveContainerSwiftUI/Views/LCTabView.swift",

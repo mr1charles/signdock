@@ -52,6 +52,11 @@ struct LibraryItem: Identifiable, Codable, Hashable {
     var sourceURL: String?
 
     var fileURL: URL { Paths.library.appendingPathComponent("\(id.uuidString).ipa") }
+    /// LiveContainer-family apps can't run inside the container (a nested container crashes on launch).
+    var looksLikeContainer: Bool {
+        let id = bundleID.lowercased()
+        return id.contains("livecontainer") || id.contains("dockbox")
+    }
     /// False after a cloud restore until the file has been downloaded again.
     var hasLocalFile: Bool { FileManager.default.fileExists(atPath: fileURL.path) }
 }
