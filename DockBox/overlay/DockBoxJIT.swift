@@ -14,6 +14,7 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 import Darwin
+import Network
 import idevice
 
 struct DockBoxJITError: LocalizedError {
@@ -29,6 +30,7 @@ final class DockBoxJIT {
     static let targetIPKey = "DockBoxTargetIP"
     static let defaultIP = "10.7.0.1" // LocalDevVPN's loopback address
     static let fallbackPort: UInt16 = 49152
+    static let portOverrideKey = "DockBoxRemotePairingPort"
 
     static var defaults: UserDefaults { LCUtils.appGroupUserDefault }
 
@@ -70,7 +72,7 @@ final class DockBoxJIT {
     func testConnection() async throws -> String {
         try await Self.onWorker {
             try self.withDebugProxy { _ in }
-            return "Connected: tunnel and debug proxy are working."
+            return "Connected to \(PairingPortResolver.lastAttempt): tunnel and debug proxy are working."
         }
     }
 
@@ -131,7 +133,9 @@ final class DockBoxJIT {
 
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = in_port_t(PairingPortResolver.resolve()).bigEndian
+        let port = PairingPortResolver.resolve()
+        PairingPortResolver.record(Self.targetIP, port)
+        addr.sin_port = in_port_t(port).bigEndian
         guard Self.targetIP.withCString({ inet_pton(AF_INET, $0, &addr.sin_addr) }) == 1 else {
             throw DockBoxJITError("Target IP \"\(Self.targetIP)\" isn't a valid IPv4 address.")
         }
@@ -147,7 +151,7 @@ final class DockBoxJIT {
             }
         }
         if let tunnelErr {
-            throw ffiError(tunnelErr, "Couldn't open the device tunnel. Is LocalDevVPN connected?")
+            throw ffiError(tunnelErr, "Couldn't open the device tunnel at \(PairingPortResolver.lastAttempt). Make sure Wi-Fi is connected or Cellular Data is off and LocalDevVPN is on. If it keeps failing, restart the device or generate a fresh pairing file")
         }
         guard let adapter, let handshake else { throw DockBoxJITError("Tunnel was created without valid handles") }
         defer { rsd_handshake_free(handshake); adapter_free(adapter) }
@@ -163,40 +167,101 @@ final class DockBoxJIT {
     }
 }
 
-/// Finds the device's remote-pairing port over Bonjour, falling back to the usual default.
-private final class PairingPortResolver: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
-    private let browser = NetServiceBrowser()
-    private var services: [NetService] = []
+/// Finds the device's remote-pairing port over Bonjour, preferring the loopback service LocalDevVPN exposes.
+/// A port set in Settings wins; otherwise falls back to the usual default.
+private final class PairingPortResolver {
+    private static let lock = NSLock()
+    private static var attempted = "no attempt yet"
+
+    static var lastAttempt: String {
+        lock.lock(); defer { lock.unlock() }
+        return attempted
+    }
+
+    static func record(_ ip: String, _ port: UInt16) {
+        lock.lock(); defer { lock.unlock() }
+        attempted = "\(ip):\(port)"
+    }
+
+    private let queue = DispatchQueue(label: "DockBox.remotePairingDiscovery")
+    private let done = DispatchSemaphore(value: 0)
+    private var browser: NWBrowser?
+    private var connection: NWConnection?
+    private var service: NWEndpoint?
+    private var serviceIsLoopback = false
     private var port: UInt16?
+    private var finished = false
 
     static func resolve(timeout: TimeInterval = 5) -> UInt16 {
+        let manual = (DockBoxJIT.defaults.string(forKey: DockBoxJIT.portOverrideKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let port = UInt16(manual), port != 0 { return port }
+
         let worker = PairingPortResolver()
-        let done = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .utility).async { worker.search(timeout: timeout); done.signal() }
-        _ = done.wait(timeout: .now() + timeout + 1)
-        return worker.port ?? DockBoxJIT.fallbackPort
-    }
-
-    private func search(timeout: TimeInterval) {
-        browser.delegate = self
-        browser.schedule(in: .current, forMode: .default)
-        browser.searchForServices(ofType: "_remotepairing._tcp.", inDomain: "local.")
-        let deadline = Date().addingTimeInterval(timeout)
-        while port == nil && Date() < deadline {
-            _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
+        worker.queue.async { worker.start() }
+        _ = worker.done.wait(timeout: .now() + timeout)
+        return worker.queue.sync {
+            worker.finish()
+            return worker.port ?? DockBoxJIT.fallbackPort
         }
-        browser.stop()
-        services.forEach { $0.stop() }
     }
 
-    func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
-        services.append(service)
-        service.delegate = self
-        service.resolve(withTimeout: 4)
+    private func start() {
+        let parameters = NWParameters.tcp
+        parameters.includePeerToPeer = true
+        let browser = NWBrowser(for: .bonjour(type: "_remotepairing._tcp", domain: "local."), using: parameters)
+        self.browser = browser
+        browser.browseResultsChangedHandler = { [weak self] results, _ in
+            guard let self, !self.finished else { return }
+            let found = results.compactMap { result -> (endpoint: NWEndpoint, loopback: Bool)? in
+                guard case .service = result.endpoint else { return nil }
+                return (result.endpoint, result.interfaces.contains { $0.name.hasPrefix("lo") })
+            }
+            guard let pick = found.first(where: { $0.loopback }) ?? found.first,
+                  self.service == nil || (!self.serviceIsLoopback && pick.loopback) else { return }
+            self.service = pick.endpoint
+            self.serviceIsLoopback = pick.loopback
+            self.connect(to: pick.endpoint, using: parameters)
+        }
+        browser.stateUpdateHandler = { [weak self] state in
+            if case .failed = state { self?.finish() }
+        }
+        browser.start(queue: queue)
     }
 
-    func netServiceDidResolveAddress(_ sender: NetService) {
-        if (1...65535).contains(sender.port), port == nil { port = UInt16(sender.port) }
+    /// Bonjour results carry no port; connecting to the service reveals the host and port behind it.
+    private func connect(to endpoint: NWEndpoint, using parameters: NWParameters) {
+        connection?.cancel()
+        let connection = NWConnection(to: endpoint, using: parameters)
+        self.connection = connection
+        connection.pathUpdateHandler = { [weak self, weak connection] path in
+            guard let self, let connection, self.connection === connection, path.status == .satisfied else { return }
+            self.recordPort(from: connection)
+        }
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
+            guard let self, let connection, self.connection === connection else { return }
+            switch state {
+            case .ready, .waiting: self.recordPort(from: connection)
+            case .failed: self.finish()
+            default: break
+            }
+        }
+        connection.start(queue: queue)
+    }
+
+    private func recordPort(from connection: NWConnection) {
+        guard !finished, case .hostPort(_, let found) = connection.currentPath?.remoteEndpoint,
+              found.rawValue != 0 else { return }
+        port = found.rawValue
+        finish()
+    }
+
+    private func finish() {
+        guard !finished else { return }
+        finished = true
+        browser?.cancel()
+        connection?.cancel()
+        done.signal()
     }
 }
 
@@ -204,6 +269,7 @@ private final class PairingPortResolver: NSObject, NetServiceBrowserDelegate, Ne
 
 struct DockBoxJITSettingsSection: View {
     @AppStorage(DockBoxJIT.targetIPKey, store: LCUtils.appGroupUserDefault) private var targetIP = DockBoxJIT.defaultIP
+    @AppStorage(DockBoxJIT.portOverrideKey, store: LCUtils.appGroupUserDefault) private var manualPort = ""
     @AppStorage(DockBoxJIT.fallbackKey, store: LCUtils.appGroupUserDefault) private var fallback = true
     @State private var importing = false
     @State private var hasPairing = DockBoxJIT.hasPairingFile
@@ -226,6 +292,13 @@ struct DockBoxJITSettingsSection: View {
                     .keyboardType(.numbersAndPunctuation)
                     .autocorrectionDisabled()
             }
+            HStack {
+                Text("Pairing port")
+                Spacer()
+                TextField("Automatic", text: $manualPort)
+                    .multilineTextAlignment(.trailing)
+                    .keyboardType(.numberPad)
+            }
             Toggle("Use StikDebug when the app isn't in Multitask", isOn: $fallback)
             Button {
                 testing = true; status = ""
@@ -244,8 +317,11 @@ struct DockBoxJITSettingsSection: View {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             do {
-                try? FileManager.default.removeItem(at: DockBoxJIT.pairingURL)
-                try FileManager.default.copyItem(at: url, to: DockBoxJIT.pairingURL)
+                // Copy first so a failed import keeps the working pairing file.
+                let staged = DockBoxJIT.pairingURL.appendingPathExtension("import")
+                try? FileManager.default.removeItem(at: staged)
+                try FileManager.default.copyItem(at: url, to: staged)
+                _ = try FileManager.default.replaceItemAt(DockBoxJIT.pairingURL, withItemAt: staged)
                 hasPairing = true
                 status = "Pairing file imported."
             } catch { status = "Import failed: \(error.localizedDescription)" }

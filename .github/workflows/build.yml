@@ -7,9 +7,9 @@ on:
 
 env:
   LIVECONTAINER_REF: 9108ae624ea001f7d7696d48407f890b48fa2653   # pinned upstream; apply.py asserts its anchors
-  STIKDEBUG_REF: 17b1e1d90d602a228de663a10efa987a9f9e547b       # source of the prebuilt idevice FFI library
+  STIKDEBUG_REF: 97530a90392057783feef79709c3631b79d0eec7       # source of the prebuilt idevice FFI library
   ZSIGN_REF: c4ba9da4283031c07efa03bce42c4b8602d22e73            # full Zsign engine (bundle signing)
-  ZIPFOUNDATION_REF: 0.9.19                                      # pure-Swift zip/unzip
+  ZIPFOUNDATION_REF: 0.9.20                                      # pure-Swift zip/unzip
 
 jobs:
   dockbox:
