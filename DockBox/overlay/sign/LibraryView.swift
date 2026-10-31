@@ -31,7 +31,7 @@ struct LibraryView: View {
                 }
                 Section(items.isEmpty ? "" : "\(items.count) apps") {
                     ForEach(items) { item in
-                        LibraryRow(item: item)
+                        LibraryItemRow(item: item)
                             .contentShape(Rectangle())
                             .onTapGesture { if !editMode.isEditing { acting = item } }
                         .swipeActions {
@@ -120,7 +120,7 @@ struct SignRequest: Identifiable {
 }
 
 @available(iOS 16.0, *)
-struct LibraryRow: View {
+struct LibraryItemRow: View {
     let item: LibraryItem
     var body: some View {
         HStack(spacing: 12) {

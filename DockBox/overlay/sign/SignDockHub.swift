@@ -92,6 +92,7 @@ struct SignDockHub: View {
     }
 }
 
+@available(iOS 16.0, *)
 private extension SignDockHub {
     var memoryText: String {
         switch DockBoxMemory.grant {
