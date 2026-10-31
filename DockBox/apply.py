@@ -144,6 +144,10 @@ info = lc / "LiveContainer/Info.plist"
 s = info.read_text()
 s, n = re.subn(r"(<key>CFBundleDisplayName</key>\s*<string>)LiveContainer(</string>)", r"\1DockBox\2", s)
 assert n == 1, "Info.plist: CFBundleDisplayName"
+# isideload rewrites this plist as a binary plist, and its writer uses 1-byte references at exactly 256 objects,
+# which Apple's parser rejects (install fails with "Missing bundle ID"). These two strings keep the count above 256.
+s, n = re.subn(r"(<key>CFBundleDisplayName</key>)", "<key>DockBoxPlistPadding</key>\n\t<string>keeps binary plist references 2 bytes wide</string>\n\t\\1", s, count=1)
+assert n == 1, "Info.plist: padding"
 anchor = "<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>livecontainer</string>"
 assert s.count(anchor) == 1, "Info.plist: URL scheme anchor"
 s = s.replace(anchor, anchor + "\n\t\t\t\t<string>dockbox</string>")
