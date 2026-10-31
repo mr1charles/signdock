@@ -62,6 +62,48 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: DockBox.ipa, path: DockBox.ipa }
 
+  vphone:
+    needs: [importer-tests]
+    if: github.event_name == 'push'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned upstreams
+        run: |
+          git clone https://github.com/LiveContainer/LiveContainer lc
+          git -C lc checkout "$LIVECONTAINER_REF"
+          git -C lc submodule update --init --recursive
+          git clone https://github.com/StephenDev0/StikDebug stik
+          git -C stik checkout "$STIKDEBUG_REF"
+          git clone https://github.com/khcrysalis/Zsign-Package -b package zsign
+          git -C zsign checkout "$ZSIGN_REF"
+          git clone --depth 1 --branch "$ZIPFOUNDATION_REF" https://github.com/weichsel/ZIPFoundation zipf
+      - name: Apply DockBox changes
+        run: python3 DockBox/apply.py lc stik zsign zipf
+      - name: Make it VPhone
+        run: python3 DockBox/vphone.py lc
+      - name: Build Zsign engine
+        run: DockBox/build_zsign.sh "$PWD/lc"
+      - name: Archive
+        working-directory: lc
+        run: |
+          set +e
+          xcodebuild archive -archivePath archive -scheme LiveContainer -project LiveContainer.xcodeproj \
+            -sdk iphoneos -arch arm64 -configuration Release > build.log 2>&1
+          code=$?
+          echo "---- compiler errors ----"
+          grep -E "error:|fatal error:|ld: " build.log | sort -u | head -80
+          echo "---- xcodebuild exit $code ----"
+          exit $code
+      - name: Create IPA
+        working-directory: lc
+        env: { scheme: LiveContainer, archive_path: archive }
+        run: |
+          sh .github/build_github.sh
+          mv LiveContainer.ipa ../VPhone.ipa
+      - uses: actions/upload-artifact@v4
+        with: { name: VPhone.ipa, path: VPhone.ipa }
+
   control:
     # Manual only: unmodified upstream at the pinned commit, built the same way. For telling "my change
     # broke installing" apart from "the installer/device has a problem".
@@ -88,7 +130,7 @@ jobs:
         with: { name: LiveContainer-control.ipa, path: LiveContainer-control.ipa }
 
   release:
-    needs: [dockbox]
+    needs: [dockbox, vphone]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
@@ -100,6 +142,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v0.1.${{ github.run_number }}"
-          gh release create "$TAG" DockBox.ipa/DockBox.ipa \
+          gh release create "$TAG" DockBox.ipa/DockBox.ipa VPhone.ipa/VPhone.ipa \
             --repo "${{ github.repository }}" --target "${{ github.sha }}" \
             --title "DockBox $TAG" --generate-notes --latest

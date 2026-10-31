@@ -1,0 +1,15 @@
+[package]
+name = "dockbox-install"
+version = "0.1.0"
+edition = "2024"
+
+# Not part of any workspace; built on the laptop that sideloads.
+[workspace]
+
+[dependencies]
+isideload = "=0.5.2"
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros"] }
+idevice = { version = "0.1.61", default-features = false, features = ["usbmuxd", "ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+rpassword = "7"
+rootcause = "=0.12.1"
