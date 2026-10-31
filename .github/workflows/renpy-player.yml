@@ -1,0 +1,61 @@
+name: Ren'Py player
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/renpy-player.yml', 'DockBox/renpy/**']
+
+env:
+  RENPY_VERSION: 8.5.3
+
+jobs:
+  player:
+    runs-on: macos-26
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Ren'Py
+        run: |
+          curl -fsSL -o sdk.tar.bz2 "https://www.renpy.org/dl/$RENPY_VERSION/renpy-$RENPY_VERSION-sdk.tar.bz2"
+          curl -fsSL -o renios.zip "https://www.renpy.org/dl/$RENPY_VERSION/renpy-$RENPY_VERSION-renios.zip"
+          tar xjf sdk.tar.bz2
+          mv "renpy-$RENPY_VERSION-sdk" sdk
+          unzip -q renios.zip -d sdk
+      - name: Create the Xcode project
+        run: |
+          ./sdk/renpy.sh sdk/launcher ios_create sdk/the_question "$PWD/player" || { echo "--- log"; cat sdk/launcher/log.txt 2>/dev/null; cat sdk/log.txt 2>/dev/null; exit 1; }
+          find player -maxdepth 2 | head -40
+          du -sh player/base player/* 2>/dev/null | sort -h | tail -8
+      - name: Build
+        working-directory: player
+        run: |
+          xcodebuild -list -project *.xcodeproj
+          set +e
+          xcodebuild archive -archivePath "$PWD/archive" -project *.xcodeproj -scheme "$(basename *.xcodeproj .xcodeproj)" \
+            -configuration Release -sdk iphoneos -arch arm64 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > build.log 2>&1
+          code=$?
+          grep -E " error:|fatal error:|ld: " build.log | sort -u | head -60
+          tail -5 build.log
+          exit $code
+      - name: Package
+        working-directory: player
+        run: |
+          app=$(find archive.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -1)
+          mkdir -p Payload && cp -R "$app" Payload/RenPyPlayer.app
+          rm -rf Payload/RenPyPlayer.app/base/game/*
+          ls Payload/RenPyPlayer.app Payload/RenPyPlayer.app/base | head -40
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' Payload/RenPyPlayer.app/Info.plist
+          zip -qry RenPyPlayer.ipa Payload
+          ls -la RenPyPlayer.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RenPyPlayer
+          path: player/RenPyPlayer.ipa
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view renpy-player >/dev/null 2>&1 || gh release create renpy-player --title "Ren'Py player" --notes "Runtime DockBox downloads to run Ren'Py games. Not an app to install on its own." --latest=false
+          gh release upload renpy-player player/RenPyPlayer.ipa --clobber
