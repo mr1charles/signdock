@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main, master]
-    paths-ignore: ['docs/**', '**.md']   # page/readme edits don't cut a release
+    paths-ignore: ['docs/**', '**.md', '.github/workflows/renpy-player.yml', 'DockBox/renpy/**']   # page/readme edits don't cut a release
 
 env:
   LIVECONTAINER_REF: 9108ae624ea001f7d7696d48407f890b48fa2653   # pinned upstream; apply.py asserts its anchors
@@ -12,7 +12,18 @@ env:
   ZIPFOUNDATION_REF: 0.9.20                                      # pure-Swift zip/unzip
 
 jobs:
+  importer-tests:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test .deb, Ren'Py and itch.io importers
+        run: |
+          python3 DockBox/tests/make_fixtures.py fixtures
+          swiftc -parse-as-library DockBox/overlay/sign/Importers.swift DockBox/tests/ImporterTests.swift -o importer-tests
+          ./importer-tests fixtures
+
   dockbox:
+    needs: [importer-tests]
     if: github.event_name == 'push'
     runs-on: macos-26
     steps:

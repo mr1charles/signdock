@@ -60,7 +60,7 @@ struct LibraryView: View {
             }
             .overlay {
                 if store.library.isEmpty && importer.rows.isEmpty {
-                    ContentUnavailableLike(icon: "shippingbox", title: "No apps yet", message: "Import IPA files or paste download links with +.")
+                    ContentUnavailableLike(icon: "shippingbox", title: "No apps yet", message: "Add IPA, .deb or Ren'Py files, or paste download or itch.io links, with +.")
                 }
             }
             .searchable(text: $search)
@@ -80,7 +80,7 @@ struct LibraryView: View {
                         }
                     } else {
                         Menu {
-                            Button { pickingFiles = true } label: { Label("IPA files…", systemImage: "doc") }
+                            Button { pickingFiles = true } label: { Label("Files…", systemImage: "doc") }
                             Button { addingURLs = true } label: { Label("From links…", systemImage: "link") }
                         } label: { Image(systemName: "plus") }
                     }
@@ -168,7 +168,7 @@ struct URLInputSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading) {
-                Text("Paste one link per line. Each is downloaded and added to your library.")
+                Text("Paste one link per line: IPA, .deb or Ren'Py downloads, or free itch.io game pages.")
                     .font(.footnote).foregroundStyle(.secondary).padding(.horizontal)
                 TextEditor(text: $text)
                     .font(.system(.footnote, design: .monospaced))

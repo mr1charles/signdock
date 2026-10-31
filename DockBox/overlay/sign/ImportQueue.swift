@@ -20,7 +20,15 @@ final class ImportQueue: ObservableObject {
     func enqueue(files: [URL], store: AppStore) {
         let new = files.map { (Row(label: $0.lastPathComponent), $0) }
         rows.append(contentsOf: new.map(\.0))
-        Task { for (row, url) in new { await process(row.id) { try await store.addIPA(copying: url) } }; }
+        Task {
+            for (row, url) in new {
+                await process(row.id) {
+                    let scoped = url.startAccessingSecurityScopedResource()
+                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                    try await self.add(url, named: url.lastPathComponent, sourceURL: nil, store: store)
+                }
+            }
+        }
     }
 
     func enqueue(urls: [URL], store: AppStore) {
@@ -30,15 +38,53 @@ final class ImportQueue: ObservableObject {
             for (row, url) in new {
                 await process(row.id) {
                     self.set(row.id, .downloading)
-                    let (tmp, response) = try await URLSession.shared.download(from: url)
+                    var from = url
+                    var name = url.lastPathComponent
+                    if ItchClient.handles(url) {
+                        let itch = ItchClient()
+                        let uploads = try await itch.uploads(page: url)
+                        guard let upload = ItchClient.best(uploads) else {
+                            let files = uploads.map(\.name).joined(separator: ", ")
+                            throw ImportFailure.message("No file here can run on iPhone. Available: \(files)")
+                        }
+                        from = try await itch.downloadURL(upload: upload, page: url)
+                        name = upload.name
+                    }
+                    let (tmp, response) = try await URLSession.shared.download(from: from)
+                    defer { try? FileManager.default.removeItem(at: tmp) }
                     if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                         throw URLError(.badServerResponse, userInfo: [NSLocalizedDescriptionKey: "Server returned \(http.statusCode)"])
                     }
+                    if !ItchClient.handles(url), let suggested = response.suggestedFilename { name = suggested }
                     self.set(row.id, .importing)
-                    defer { try? FileManager.default.removeItem(at: tmp) }
-                    try await store.addIPA(copying: tmp, sourceURL: url.absoluteString)
+                    // Only a direct IPA link can be fetched again as-is on restore.
+                    let direct = !ItchClient.handles(url) && name.lowercased().hasSuffix(".ipa")
+                    try await self.add(tmp, named: name, sourceURL: direct ? url.absoluteString : nil, store: store)
                 }
             }
+        }
+    }
+
+    /// Adds a downloaded or picked file by what it is: an IPA as-is, a .deb or Ren'Py zip converted to an IPA first.
+    private func add(_ file: URL, named name: String, sourceURL: String?, store: AppStore) async throws {
+        let lower = name.lowercased()
+        if lower.hasSuffix(".deb") {
+            let work = Paths.work()
+            defer { try? FileManager.default.removeItem(at: work) }
+            let payload = try DebImporter.extractApp(deb: file, to: work)
+            let ipa = work.appendingPathComponent("converted.ipa")
+            try FileManager.default.zipItem(at: payload, to: ipa, shouldKeepParent: true, compressionMethod: .deflate)
+            try await store.addIPA(copying: ipa, sourceURL: nil)
+        } else if lower.hasSuffix(".zip") {
+            guard let ipa = try await RenPyPackager.package(zip: file, title: RenPyPackager.title(fromFileName: name)) else {
+                throw ImportFailure.message("This zip isn't a Ren'Py game, so it can't run on iPhone.")
+            }
+            defer { try? FileManager.default.removeItem(at: ipa) }
+            try await store.addIPA(copying: ipa, sourceURL: nil)
+        } else if lower.hasSuffix(".apk") {
+            throw ImportFailure.message("APK files are Android apps, and iPhone can't run them.")
+        } else {
+            try await store.addIPA(copying: file, sourceURL: sourceURL)
         }
     }
 
