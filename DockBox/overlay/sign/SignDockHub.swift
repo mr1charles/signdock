@@ -14,13 +14,50 @@ struct SignDockHub: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("backupIPAs") private var backupIPAs = true
     @State private var section = HubSection.library
+    @State private var showingMemory = false
+    @State private var showingPairing = false
+    @State private var paired = DockBoxJIT.hasPairingFile
+    @Namespace private var tabs
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Section", selection: $section) {
-                ForEach(HubSection.allCases) { Text($0.rawValue).tag($0) }
+            HStack(spacing: 8) {
+                Button { showingMemory = true } label: {
+                    DBStatusChip(icon: "memorychip", text: memoryText, tone: memoryTone)
+                }
+                Button { showingPairing = true } label: {
+                    DBStatusChip(icon: "bolt.fill", text: paired ? "JIT ready" : "Pair for JIT", tone: paired ? .good : .warn)
+                }
+                Button { section = .cloud } label: {
+                    DBStatusChip(icon: cloud.signedIn ? "checkmark.icloud" : "icloud.slash",
+                                 text: cloud.signedIn ? "Synced" : "Sign in", tone: cloud.signedIn ? .good : .neutral)
+                }
+                Spacer(minLength: 0)
             }
-            .pickerStyle(.segmented)
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            HStack(spacing: 4) {
+                ForEach(HubSection.allCases) { item in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { section = item }
+                    } label: {
+                        Text(item.rawValue)
+                            .font(.subheadline.weight(section == item ? .semibold : .regular))
+                            .foregroundStyle(section == item ? .white : .secondary)
+                            .lineLimit(1).minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity).padding(.vertical, 8)
+                            .background {
+                                if section == item {
+                                    Capsule().fill(DBTheme.gradient).matchedGeometryEffect(id: "tab", in: tabs)
+                                }
+                            }
+                    }.buttonStyle(.plain)
+                }
+            }
+            .padding(4)
+            .background(Capsule().fill(Color(.secondarySystemBackground)))
             .padding(.horizontal)
             .padding(.vertical, 8)
 
@@ -34,6 +71,12 @@ struct SignDockHub: View {
         .environmentObject(store)
         .environmentObject(importer)
         .environmentObject(cloud)
+        .sheet(isPresented: $showingMemory) { DockBoxMemoryView() }
+        .sheet(isPresented: $showingPairing) { DockBoxPairingView { paired = true } }
+        .onAppear {
+            DockBoxMemory.startWatching()
+            DockBoxMemory.sweepStaleWork()
+        }
         .onChange(of: scenePhase) { phase in
             // Sync when the app comes forward and when it's about to leave.
             if phase == .active || phase == .background, cloud.signedIn {
@@ -45,6 +88,23 @@ struct SignDockHub: View {
             if url.isFileURL, url.pathExtension.lowercased() == "ipa" {
                 importer.enqueue(files: [url], store: store)
             }
+        }
+    }
+}
+
+private extension SignDockHub {
+    var memoryText: String {
+        switch DockBoxMemory.grant {
+        case .active: return "More RAM on"
+        case .notGranted: return "Normal RAM"
+        case .unknown: return "RAM"
+        }
+    }
+    var memoryTone: DBStatusChip.Tone {
+        switch DockBoxMemory.grant {
+        case .active: return .good
+        case .notGranted: return .warn
+        case .unknown: return .neutral
         }
     }
 }

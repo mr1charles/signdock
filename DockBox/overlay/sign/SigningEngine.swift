@@ -1,10 +1,11 @@
 import Foundation
 
 enum SigningError: LocalizedError {
-    case noApp, signFailed, noMemoryEntitlement
+    case noApp, signFailed, noMemoryEntitlement, noSpace(String)
     var errorDescription: String? {
         switch self {
         case .noApp: return "No .app found inside the IPA."
+        case .noSpace(let needed): return "Not enough free storage. Signing this app needs about \(needed)."
         case .noMemoryEntitlement:
             return "This certificate's profile doesn't include the Increased Memory Limit entitlement. Generate the profile with that capability enabled, or turn the option off."
         case .signFailed:
@@ -24,6 +25,13 @@ enum SigningEngine {
             guard info?.grantsMoreMemory == true else { throw SigningError.noMemoryEntitlement }
         }
         let fm = FileManager.default
+        // Unzipped app plus the new IPA. Compressed apps commonly expand to about three times their size.
+        let size = Int64((try? ipa.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        let free = (try? fm.temporaryDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+            .volumeAvailableCapacityForImportantUsage
+        if let free, free > 0, free < size * 4 {
+            throw SigningError.noSpace(ByteCountFormatter.string(fromByteCount: size * 4, countStyle: .file))
+        }
         let work = Paths.work()
         defer { try? fm.removeItem(at: work) }
 
@@ -75,6 +83,7 @@ final class BatchSigner: ObservableObject {
     @Published var jobs: [Job] = []
     @Published var running = false
     var finished: Bool { !jobs.isEmpty && !running }
+    var completed: Int { jobs.filter { $0.state == .done || { if case .failed = $0 { return true } else { return false } }($0.state) }.count }
 
     func run(items: [LibraryItem], cert: CertificateProfile, bundleSuffix: String, requireMoreMemory: Bool, store: AppStore) async {
         guard !running else { return }
@@ -89,11 +98,15 @@ final class BatchSigner: ObservableObject {
                 continue
             }
             jobs[index].state = .working
+            await DockBoxMemory.waitForHeadroom()
             let started = Date()
             let result = await Task.detached(priority: .userInitiated) {
-                Result { try SigningEngine.sign(ipa: item.fileURL, displayName: item.name, cert: cert,
-                                                password: password, bundleSuffix: bundleSuffix,
-                                                requireMoreMemory: requireMoreMemory) }
+                // Drain per app so a long batch doesn't build up temporary objects.
+                autoreleasepool {
+                    Result { try SigningEngine.sign(ipa: item.fileURL, displayName: item.name, cert: cert,
+                                                    password: password, bundleSuffix: bundleSuffix,
+                                                    requireMoreMemory: requireMoreMemory) }
+                }
             }.value
 
             var record = SignRecord(appName: item.name, bundleID: item.bundleID, version: item.version,

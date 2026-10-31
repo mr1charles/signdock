@@ -42,9 +42,25 @@ struct SignSheet: View {
                     } header: { Text("Bundle ID suffix (optional)") }
                     footer: { Text("Leave empty to keep each app's bundle ID. The provisioning profile must allow the resulting ID.") }
                 }
-                Section(signer.jobs.isEmpty ? "\(items.count) apps" : "Progress") {
+                if !signer.jobs.isEmpty {
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(signer.finished ? "Finished" : "Signing \(min(signer.completed + 1, signer.jobs.count)) of \(signer.jobs.count)")
+                                .font(.headline)
+                            ProgressView(value: Double(signer.completed), total: Double(signer.jobs.count))
+                                .tint(DBTheme.accent)
+                            if !signer.finished {
+                                Text("Keep DockBox open. Apps sign one at a time to save memory.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }.padding(.vertical, 4)
+                    }
+                }
+                Section(signer.jobs.isEmpty ? "\(items.count) apps" : "Apps") {
                     if signer.jobs.isEmpty {
-                        ForEach(items) { Text($0.name) }
+                        ForEach(items) { item in
+                            HStack(spacing: 12) { DBAppTile(name: item.name, size: 32); Text(item.name) }
+                        }
                     } else {
                         ForEach(signer.jobs) { job in JobRow(job: job) }
                     }
@@ -76,10 +92,11 @@ struct JobRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                DBAppTile(name: job.item.name, size: 32)
                 Text(job.item.name)
                 Spacer()
                 switch job.state {
-                case .queued: Text("Queued").foregroundStyle(.secondary)
+                case .queued: Text("Queued").font(.caption).foregroundStyle(.secondary)
                 case .working: ProgressView()
                 case .done:
                     if let url = job.output { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") } }

@@ -11,6 +11,7 @@ struct LibraryView: View {
     @State private var pickingFiles = false
     @State private var addingURLs = false
     @State private var signing: [LibraryItem]?
+    @State private var acting: LibraryItem?
 
     private var items: [LibraryItem] {
         search.isEmpty ? store.library
@@ -30,16 +31,9 @@ struct LibraryView: View {
                 }
                 Section(items.isEmpty ? "" : "\(items.count) apps") {
                     ForEach(items) { item in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 4) {
-                                Text(item.name).font(.headline)
-                                if !item.hasLocalFile {
-                                    Image(systemName: "icloud.and.arrow.down").foregroundStyle(.orange)
-                                }
-                            }
-                            Text("\(item.bundleID) · v\(item.version) · \(ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file))")
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
+                        LibraryRow(item: item)
+                            .contentShape(Rectangle())
+                            .onTapGesture { if !editMode.isEditing { acting = item } }
                         .swipeActions {
                             Button(role: .destructive) { store.remove(item) } label: { Label("Delete", systemImage: "trash") }
                             Button { signing = [item] } label: { Label("Sign", systemImage: "signature") }.tint(.blue)
@@ -54,9 +48,19 @@ struct LibraryView: View {
                     }
                 }
             }
+            .confirmationDialog(acting?.name ?? "", isPresented: Binding(get: { acting != nil }, set: { if !$0 { acting = nil } }), titleVisibility: .visible, presenting: acting) { item in
+                Button("Sign") { signing = [item] }
+                if item.hasLocalFile && !item.looksLikeContainer {
+                    Button("Run in a container") {
+                        sharedModel.selectedTab = .apps
+                        sharedModel.deepLink = item.fileURL
+                    }
+                }
+                Button("Delete", role: .destructive) { store.remove(item) }
+            }
             .overlay {
                 if store.library.isEmpty && importer.rows.isEmpty {
-                    ContentUnavailableLike(title: "No apps yet", message: "Import IPA files or paste download links with +.")
+                    ContentUnavailableLike(icon: "shippingbox", title: "No apps yet", message: "Import IPA files or paste download links with +.")
                 }
             }
             .searchable(text: $search)
@@ -81,14 +85,21 @@ struct LibraryView: View {
                         } label: { Image(systemName: "plus") }
                     }
                 }
-                ToolbarItem(placement: .bottomBar) {
-                    if editMode.isEditing {
-                        Button("Sign \(selection.count) selected") {
-                            signing = store.library.filter { selection.contains($0.id) }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(selection.isEmpty)
+            }
+            .safeAreaInset(edge: .bottom) {
+                if editMode.isEditing {
+                    Button {
+                        signing = store.library.filter { selection.contains($0.id) }
+                    } label: {
+                        Label(selection.isEmpty ? "Select apps to sign" : "Sign \(selection.count) \(selection.count == 1 ? "app" : "apps")", systemImage: "signature")
+                            .font(.headline).foregroundStyle(.white)
+                            .frame(maxWidth: .infinity).padding(.vertical, 14)
+                            .background(RoundedRectangle(cornerRadius: 16).fill(DBTheme.gradient))
+                            .opacity(selection.isEmpty ? 0.5 : 1)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(selection.isEmpty)
+                    .padding(.horizontal).padding(.bottom, 8)
                 }
             }
             .fileImporter(isPresented: $pickingFiles, allowedContentTypes: [.ipa, .data], allowsMultipleSelection: true) { result in
@@ -106,6 +117,28 @@ struct SignRequest: Identifiable {
     let id = UUID()
     let items: [LibraryItem]
     init(_ items: [LibraryItem]) { self.items = items }
+}
+
+@available(iOS 16.0, *)
+struct LibraryRow: View {
+    let item: LibraryItem
+    var body: some View {
+        HStack(spacing: 12) {
+            DBAppTile(name: item.name)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name).font(.body.weight(.semibold)).lineLimit(1)
+                Text("v\(item.version) · \(ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file))")
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(item.bundleID).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if !item.hasLocalFile {
+                Image(systemName: "icloud.and.arrow.down").foregroundStyle(.orange)
+                    .accessibilityLabel("Not downloaded yet")
+            }
+        }
+        .padding(.vertical, 2)
+    }
 }
 
 @available(iOS 16.0, *)
@@ -159,9 +192,13 @@ struct URLInputSheet: View {
 /// iOS 16-compatible stand-in for ContentUnavailableView.
 @available(iOS 16.0, *)
 struct ContentUnavailableLike: View {
+    var icon: String? = nil
     let title: String, message: String
     var body: some View {
         VStack(spacing: 6) {
+            if let icon {
+                Image(systemName: icon).font(.system(size: 40, weight: .light)).foregroundStyle(DBTheme.gradient).padding(.bottom, 6)
+            }
             Text(title).font(.headline)
             Text(message).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }.padding()

@@ -275,6 +275,7 @@ struct DockBoxJITSettingsSection: View {
     @State private var hasPairing = DockBoxJIT.hasPairingFile
     @State private var status = ""
     @State private var testing = false
+    @State private var pairingHere = false
 
     var body: some View {
         Group {
@@ -283,7 +284,8 @@ struct DockBoxJITSettingsSection: View {
                 Spacer()
                 Text(hasPairing ? "Imported" : "Missing").foregroundColor(hasPairing ? .green : .secondary)
             }
-            Button(hasPairing ? "Replace pairing file…" : "Import pairing file…") { importing = true }
+            Button(hasPairing ? "Pair again on this iPhone…" : "Pair on this iPhone…") { pairingHere = true }
+            Button(hasPairing ? "Replace with a file…" : "Import a file…") { importing = true }
             HStack {
                 Text("Device IP")
                 Spacer()
@@ -311,6 +313,9 @@ struct DockBoxJITSettingsSection: View {
                 HStack { Text("Test connection"); if testing { Spacer(); ProgressView() } }
             }.disabled(testing)
             if !status.isEmpty { Text(status).font(.footnote).foregroundColor(.secondary) }
+        }
+        .sheet(isPresented: $pairingHere) {
+            DockBoxPairingView { hasPairing = true; status = "Paired on this iPhone." }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.propertyList, .data]) { result in
             guard case .success(let url) = result else { return }
