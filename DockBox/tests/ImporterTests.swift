@@ -40,18 +40,25 @@ enum ImporterTests {
         check(ItchClient.best(picks)?.name == "a-pc.zip", "itch: PC zip preferred")
         check(ItchClient.best([.init(id: 1, name: "a.apk", size: "")]) == nil, "itch: APK-only game has no pick")
 
+        for block in [#"<div class="upload"><a data-upload_id="7"></a><strong title="a-pc.zip" class="name">a</strong>"#,
+                      #"<div class="upload"><a class="button" data-upload_id="7"></a><strong class="name" title="a-pc.zip">a</strong>"#] {
+            check(ItchClient.parseUploads(block) == [.init(id: 7, name: "a-pc.zip", size: "")], "itch: file name found in either attribute order")
+        }
+
         // Live: the site can change without this code changing, and that should be seen on every build.
-        do {
-            let page = URL(string: "https://3005jin.itch.io/7-minutes-in-the-closet")!
-            let itch = ItchClient()
-            let uploads = try await itch.uploads(page: page)
-            check(!uploads.isEmpty, "itch live: \(uploads.count) files listed: \(uploads.map(\.name))")
-            let upload = ItchClient.best(uploads)!
-            var req = URLRequest(url: try await itch.downloadURL(upload: upload, page: page))
-            req.setValue("bytes=0-3", forHTTPHeaderField: "Range")
-            let (data, _) = try await URLSession.shared.data(for: req)
-            check(data.starts(with: Data("PK".utf8)), "itch live: \(upload.name) downloads as a zip")
-        } catch { check(false, "itch live: \(error.localizedDescription)") }
+        for link in ["https://3005jin.itch.io/7-minutes-in-the-closet", "https://antivillaingames.itch.io/beast-control"] {
+            do {
+                let page = URL(string: link)!
+                let itch = ItchClient()
+                let uploads = try await itch.uploads(page: page)
+                check(!uploads.isEmpty, "itch live: \(uploads.map(\.name))")
+                let upload = ItchClient.best(uploads)!
+                var req = URLRequest(url: try await itch.downloadURL(upload: upload, page: page))
+                req.setValue("bytes=0-3", forHTTPHeaderField: "Range")
+                let (data, _) = try await URLSession.shared.data(for: req)
+                check(data.starts(with: Data("PK".utf8)), "itch live: \(upload.name) downloads as a zip")
+            } catch { check(false, "itch live \(link): \(error.localizedDescription)") }
+        }
 
         print(failures == 0 ? "All passed." : "\(failures) failed.")
         exit(failures == 0 ? 0 : 1)

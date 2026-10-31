@@ -236,6 +236,15 @@ final class ItchClient {
         return String(decoding: data, as: UTF8.self)
     }
 
+    private func frontPage(_ page: URL) async -> String {
+        for attempt in 0..<3 {
+            if attempt > 0 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 2_000_000_000) }
+            guard let (data, response) = try? await session.data(for: request(page)) else { continue }
+            if (response as? HTTPURLResponse)?.statusCode == 200 { return String(decoding: data, as: UTF8.self) }
+        }
+        return ""
+    }
+
     private func csrf(_ page: URL) throws -> String {
         guard let token = session.configuration.httpCookieStorage?.cookies(for: page)?.first(where: { $0.name == "itchio_token" })?.value else {
             throw ImportFailure.message("itch.io didn't start a download session. Try again.")
@@ -246,7 +255,8 @@ final class ItchClient {
     private func json(_ data: Data) -> [String: Any] { ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any]) ?? [:] }
 
     func uploads(page: URL) async throws -> [Upload] {
-        let front = try await html(request(page))
+        // A busy game page can answer 429 and still set the session cookie, so only a missing cookie stops the import.
+        let front = await frontPage(page)
         if let price = front.range(of: #""min_price":\s*(\d+)"#, options: .regularExpression).map({ String(front[$0]) }),
            let cents = Int(price.filter(\.isNumber)), cents > 0 {
             throw ImportFailure.message("This is a paid game, and DockBox can only download free ones from itch.io. Buy it on itch.io, then import the file.")
@@ -274,7 +284,7 @@ final class ItchClient {
     static func parseUploads(_ html: String) -> [Upload] {
         html.components(separatedBy: #"<div class="upload""#).dropFirst().compactMap { block in
             guard let id = capture(#"data-upload_id="(\d+)""#, block).flatMap(Int.init),
-                  let name = capture(#"title="([^"]+)" class="name""#, block) else { return nil }
+                  let name = capture(#"class="name"[^>]*title="([^"]+)""#, block) ?? capture(#"title="([^"]+)"[^>]*class="name""#, block) else { return nil }
             return Upload(id: id, name: name, size: capture(#"file_size"><span>([^<]+)"#, block) ?? "")
         }
     }

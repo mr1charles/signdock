@@ -41,7 +41,7 @@ enum RenPyPackager {
         try PropertyListSerialization.data(fromPropertyList: plist, format: .binary, options: 0).write(to: plistURL)
 
         let out = fm.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).ipa")
-        try fm.zipItem(at: payload, to: out, shouldKeepParent: true, compressionMethod: .deflate)
+        try fm.zipItem(at: payload, to: out, shouldKeepParent: true, compressionMethod: .none) // game archives barely compress, and this saves minutes
         return out
     }
 
