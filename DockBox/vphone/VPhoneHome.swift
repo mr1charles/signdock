@@ -77,7 +77,7 @@ struct VPhoneHomeView: View {
             }
         } label: {
             VStack(spacing: 4) {
-                Image(uiImage: app.appInfo.icon(isDarkIcon: colorScheme == .dark))
+                Image(uiImage: app.appInfo.iconIsDarkIcon(colorScheme == .dark))
                     .resizable().scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                 Text(app.appInfo.displayName() ?? "App")
