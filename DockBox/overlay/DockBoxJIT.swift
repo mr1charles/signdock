@@ -40,7 +40,27 @@ final class DockBoxJIT {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("pairingFile.plist")
     }
-    static var hasPairingFile: Bool { FileManager.default.fileExists(atPath: pairingURL.path) }
+    static var hasPairingFile: Bool {
+        adoptDroppedPairingFile()
+        return FileManager.default.fileExists(atPath: pairingURL.path)
+    }
+
+    /// Puts a new pairing file in place, keeping the old one if that fails.
+    static func installPairingFile(from staged: URL) throws {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: pairingURL.path) {
+            _ = try fm.replaceItemAt(pairingURL, withItemAt: staged)
+        } else {
+            try fm.moveItem(at: staged, to: pairingURL)
+        }
+    }
+
+    /// A file copied into Documents from a computer, or with the Files app, is picked up by itself.
+    private static func adoptDroppedPairingFile() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dropped = docs.appendingPathComponent("pairingFile.plist")
+        if FileManager.default.fileExists(atPath: dropped.path) { try? installPairingFile(from: dropped) }
+    }
 
     private static var targetIP: String {
         let value = (defaults.string(forKey: targetIPKey) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -326,7 +346,7 @@ struct DockBoxJITSettingsSection: View {
                 let staged = DockBoxJIT.pairingURL.appendingPathExtension("import")
                 try? FileManager.default.removeItem(at: staged)
                 try FileManager.default.copyItem(at: url, to: staged)
-                _ = try FileManager.default.replaceItemAt(DockBoxJIT.pairingURL, withItemAt: staged)
+                try DockBoxJIT.installPairingFile(from: staged)
                 hasPairing = true
                 status = "Pairing file imported."
             } catch { status = "Import failed: \(error.localizedDescription)" }

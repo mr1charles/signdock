@@ -25,4 +25,16 @@ edit("LiveContainerSwiftUI/Views/LCTabView.swift", "TabView(selection: $sharedMo
      '                .tabItem { Label("Phone", systemImage: "iphone") }\n'
      '                .tag(LCTabIdentifier.vphone)\n')
 shutil.copy(here / "vphone/VPhoneHome.swift", lc / "LiveContainerSwiftUI/DockBox/VPhoneHome.swift")
+def set_icon(lc, here, name):
+    """Writes the light, dark and tinted icons over the file names AppIcon's Contents.json lists."""
+    import json, shutil
+    folder = lc / "Resources/Assets.xcassets/AppIcon.appiconset"
+    for image in json.loads((folder / "Contents.json").read_text())["images"]:
+        if "filename" not in image:
+            continue
+        look = next((a["value"] for a in image.get("appearances", []) if a["appearance"] == "luminosity"), None)
+        suffix = {"dark": "-dark", "tinted": "-tinted"}.get(look, "")
+        shutil.copy(here / f"icons/{name}{suffix}.png", folder / image["filename"])
+
+set_icon(lc, here, "vphone")
 print("VPhone applied.")

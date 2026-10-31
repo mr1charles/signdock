@@ -152,4 +152,16 @@ anchor = "<key>CFBundleURLSchemes</key>\n\t\t\t<array>\n\t\t\t\t<string>livecont
 assert s.count(anchor) == 1, "Info.plist: URL scheme anchor"
 s = s.replace(anchor, anchor + "\n\t\t\t\t<string>dockbox</string>")
 info.write_text(s)
+def set_icon(lc, here, name):
+    """Writes the light, dark and tinted icons over the file names AppIcon's Contents.json lists."""
+    import json, shutil
+    folder = lc / "Resources/Assets.xcassets/AppIcon.appiconset"
+    for image in json.loads((folder / "Contents.json").read_text())["images"]:
+        if "filename" not in image:
+            continue
+        look = next((a["value"] for a in image.get("appearances", []) if a["appearance"] == "luminosity"), None)
+        suffix = {"dark": "-dark", "tinted": "-tinted"}.get(look, "")
+        shutil.copy(here / f"icons/{name}{suffix}.png", folder / image["filename"])
+
+set_icon(lc, here, "dockbox")
 print("DockBox applied.")

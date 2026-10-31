@@ -158,7 +158,7 @@ final class DockBoxPairing: ObservableObject {
         if let err = staged.path.withCString({ rp_pairing_file_write(pairingFile, $0) }) {
             return message(err, "Couldn't save the pairing file")
         }
-        do { _ = try FileManager.default.replaceItemAt(DockBoxJIT.pairingURL, withItemAt: staged) }
+        do { try DockBoxJIT.installPairingFile(from: staged) }
         catch { return "Couldn't save the pairing file: \(error.localizedDescription)" }
         return nil
     }

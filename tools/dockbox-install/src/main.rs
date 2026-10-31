@@ -1,6 +1,6 @@
 //! Sideloads an IPA with the Increased Memory Limit turned on, which iloader has no option for, and exports the
 //! certificate it signed with so LiveContainer's JIT-less mode can use the same one.
-//! Usage: dockbox-install <file.ipa> [--no-memory]
+//! Usage: dockbox-install <file.ipa> [--no-memory] [--forget]
 
 use idevice::usbmuxd::{UsbmuxdAddr, UsbmuxdConnection};
 use isideload::{
@@ -60,10 +60,16 @@ fn random_password() -> String {
 async fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(ipa) = args.iter().find(|a| !a.starts_with("--")).map(PathBuf::from) else {
-        eprintln!("Usage: dockbox-install <file.ipa> [--no-memory]");
+        eprintln!("Usage: dockbox-install <file.ipa> [--no-memory] [--forget]");
         std::process::exit(2);
     };
     let more_memory = !args.iter().any(|a| a == "--no-memory");
+    if args.iter().any(|a| a == "--forget") {
+        if let Ok(entry) = keyring::Entry::new(STORAGE, "login") {
+            let _ = entry.delete_credential();
+        }
+        println!("Forgot the saved Apple ID.");
+    }
     if !ipa.is_file() {
         eprintln!("No file at {}", ipa.display());
         std::process::exit(2);
@@ -80,8 +86,16 @@ async fn main() {
     };
     let provider = device.to_provider(UsbmuxdAddr::from_env_var().unwrap(), "dockbox-install");
 
-    let email = ask("Apple ID email: ");
-    let password = rpassword::prompt_password("Apple ID password: ").unwrap();
+    // Saved in this laptop's keyring after the first successful install, never in the app or on the phone.
+    let saved = keyring::Entry::new(STORAGE, "login").and_then(|e| e.get_password()).ok().and_then(|s| {
+        s.split_once('\n').map(|(e, p)| (e.to_string(), p.to_string()))
+    });
+    let (email, password) = saved.clone().unwrap_or_else(|| {
+        (ask("Apple ID email: "), rpassword::prompt_password("Apple ID password: ").unwrap())
+    });
+    if saved.is_some() {
+        println!("Using the saved Apple ID {email}. Run with --forget to clear it.");
+    }
     let mut account = AppleAccount::builder(&email)
         .anisette_provider(RemoteV3AnisetteProvider::default().unwrap().set_serial_number("2".to_string()))
         .login(&password, two_factor)
@@ -110,6 +124,10 @@ async fn main() {
         .install_app(&provider, ipa, more_memory, None::<fn(f32) -> std::future::Ready<()>>, None)
         .await
         .expect("Install failed");
+
+    if let Ok(entry) = keyring::Entry::new(STORAGE, "login") {
+        let _ = entry.set_password(&format!("{email}\n{password}"));
+    }
 
     let cert_password = random_password();
     let p12 = identity.as_p12(&cert_password).await.expect("Couldn't export the certificate");
