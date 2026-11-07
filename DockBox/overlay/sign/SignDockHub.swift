@@ -34,13 +34,15 @@ struct SignDockHub: View {
                 }
                 Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DBPressStyle())
             .padding(.horizontal)
             .padding(.top, 8)
 
             HStack(spacing: 4) {
                 ForEach(HubSection.allCases) { item in
                     Button {
+                        guard section != item else { return }
+                        DBHaptics.select()
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { section = item }
                     } label: {
                         Text(item.rawValue)
@@ -53,7 +55,9 @@ struct SignDockHub: View {
                                     Capsule().fill(DBTheme.gradient).matchedGeometryEffect(id: "tab", in: tabs)
                                 }
                             }
-                    }.buttonStyle(.plain)
+                    }
+                    .buttonStyle(DBPressStyle())
+                    .accessibilityAddTraits(section == item ? .isSelected : [])
                 }
             }
             .padding(4)
@@ -61,13 +65,18 @@ struct SignDockHub: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
 
-            switch section {
-            case .library: LibraryView()
-            case .history: HistoryView()
-            case .certificates: CertificatesView()
-            case .cloud: CloudView()
+            Group {
+                switch section {
+                case .library: LibraryView()
+                case .history: HistoryView()
+                case .certificates: CertificatesView()
+                case .cloud: CloudView()
+                }
             }
+            .transition(.opacity)
+            .id(section)
         }
+        .animation(.easeInOut(duration: 0.18), value: section)
         .environmentObject(store)
         .environmentObject(importer)
         .environmentObject(cloud)

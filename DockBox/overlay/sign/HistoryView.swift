@@ -43,7 +43,10 @@ struct HistoryView: View {
                             if !record.success { Text(record.message).font(.caption).foregroundStyle(.red) }
                         }
                         Spacer()
-                        if let url = record.outputURL { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") } }
+                        if let url = record.outputURL {
+                            ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
+                                .accessibilityLabel("Share signed \(record.appName)")
+                        }
                     }
                     .contextMenu {
                         if let item = store.library.first(where: { $0.id == record.libraryID }) {
@@ -55,7 +58,13 @@ struct HistoryView: View {
                     }
                 }
             }
-            .overlay { if store.history.isEmpty { ContentUnavailableLike(title: "No history", message: "Signed apps show up here.") } }
+            .overlay {
+                if store.history.isEmpty {
+                    ContentUnavailableLike(icon: "clock.arrow.circlepath", title: "No history", message: "Every signing run shows up here.")
+                } else if rows.isEmpty {
+                    ContentUnavailableLike(icon: "magnifyingglass", title: "No matches", message: "No runs match this filter or search.")
+                }
+            }
             .searchable(text: $search)
             .navigationTitle("History")
             .toolbar {

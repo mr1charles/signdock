@@ -33,7 +33,7 @@ struct LibraryView: View {
                     ForEach(items) { item in
                         LibraryItemRow(item: item)
                             .contentShape(Rectangle())
-                            .onTapGesture { if !editMode.isEditing { acting = item } }
+                            .onTapGesture { if !editMode.isEditing { DBHaptics.tap(); acting = item } }
                         .swipeActions {
                             Button(role: .destructive) { store.remove(item) } label: { Label("Delete", systemImage: "trash") }
                             Button { signing = [item] } label: { Label("Sign", systemImage: "signature") }.tint(.blue)
@@ -60,7 +60,11 @@ struct LibraryView: View {
             }
             .overlay {
                 if store.library.isEmpty && importer.rows.isEmpty {
-                    ContentUnavailableLike(icon: "shippingbox", title: "No apps yet", message: "Add IPA, .deb or Ren'Py files, or paste download or itch.io links, with +.")
+                    ContentUnavailableLike(icon: "shippingbox", title: "No apps yet",
+                                           message: "Add IPA, .deb or Ren'Py files, or paste download or itch.io links.",
+                                           actionTitle: "Add files") { pickingFiles = true }
+                } else if items.isEmpty && !search.isEmpty && importer.rows.isEmpty {
+                    ContentUnavailableLike(icon: "magnifyingglass", title: "No matches", message: "Nothing in your library matches “\(search)”.")
                 }
             }
             .searchable(text: $search)
@@ -97,7 +101,7 @@ struct LibraryView: View {
                             .background(RoundedRectangle(cornerRadius: 16).fill(DBTheme.gradient))
                             .opacity(selection.isEmpty ? 0.5 : 1)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(DBPressStyle())
                     .disabled(selection.isEmpty)
                     .padding(.horizontal).padding(.bottom, 8)
                 }
@@ -194,13 +198,23 @@ struct URLInputSheet: View {
 struct ContentUnavailableLike: View {
     var icon: String? = nil
     let title: String, message: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
     var body: some View {
         VStack(spacing: 6) {
             if let icon {
-                Image(systemName: icon).font(.system(size: 40, weight: .light)).foregroundStyle(DBTheme.gradient).padding(.bottom, 6)
+                Image(systemName: icon).font(.system(size: 40, weight: .light)).foregroundStyle(DBTheme.accent).padding(.bottom, 6)
+                    .accessibilityHidden(true)
             }
             Text(title).font(.headline)
             Text(message).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
-        }.padding()
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.borderedProminent).tint(DBTheme.accent)
+                    .padding(.top, 10)
+            }
+        }
+        .padding()
+        .accessibilityElement(children: .contain)
     }
 }

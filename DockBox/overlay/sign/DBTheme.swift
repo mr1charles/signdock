@@ -1,4 +1,22 @@
 import SwiftUI
+import UIKit
+
+/// Light physical feedback. Each call is a no-op on devices without a Taptic Engine.
+enum DBHaptics {
+    static func select() { UISelectionFeedbackGenerator().selectionChanged() }
+    static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+}
+
+/// Buttons dip slightly while pressed, so a tap is acknowledged before the action finishes.
+struct DBPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
 
 /// The shared look of DockBox's own screens.
 enum DBTheme {
